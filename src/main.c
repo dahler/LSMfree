@@ -5,13 +5,16 @@
 // This is where you can implement your own tests for the hash table
 // implementation.
 int main() {
+
+    printf("-------------------------------Start---------------------------------\n");
+
     lsmtree *lsmt = NULL;
     char c;
     valType int1, int2, *value;
-    int bfr_size=512, depth=1000, fanout=10, found, count, scan_out, idx, help[2];
+    int bfr_size=32, depth=10, fanout=10,  count,  found, scan_out, idx, help[2];
     double error=0.01;
-    char file_bfr[CHAR_SIZE + EXTRA_SIZE];
-    FILE *fptr;
+    //char file_bfr[CHAR_SIZE + EXTRA_SIZE];
+    //FILE *fptr;
 
     // statistics defs
     // size_t pagesize = getpagesize();
@@ -24,59 +27,92 @@ int main() {
         return -1;
     }
 
+    
+    //----- my test -----
     clock_t start = clock();
     count = 0;
     value = (valType *) malloc(sizeof(valType));
-    while (scanf("%c", &c) == 1) {
-        if (c == 'p') {
-            if (scanf("%d %d\n", &int1, &int2) == 2){
-                put(lsmt, int1, int2);
-            };
-        } else if (c == 'g') {
-            if (scanf("%d\n", &int1) == 1) {
-                found = get(lsmt, int1, value);
-                if (found == 0) {
-                    printf("%d\n", *value);
-                } else {
-                    printf("\n");
-                }
-            };
-        } else if (c == 'd') {
-            scan_out = scanf("%d\n", &int1);
-            if (scan_out == 1)
-                erase(lsmt, int1);
-        } else if (c == 's'){
-            // Read the line change char
-            scan_out = scanf("%c", &c);
-            if (scan_out == 1)
-                print_statistics(lsmt);
-        } else if (c == 'l'){
-            // Read the line change char
-            scan_out = scanf("%s", file_bfr);
-            if (scan_out == 1) {
-                fptr = fopen(file_bfr, "rb");
-                while (fread(help, sizeof(int), 2, fptr) == 2) {
-                    put(lsmt, help[0], help[1]);
-                }
-                fclose(fptr);
-            }
-            // Read the line change char
-            scan_out = scanf("%c", &c);
-        } else if (c == 'r'){
-            if (scanf("%d %d\n", &int1, &int2) == 2){
-                for (idx=int1; idx<int2; idx++) {
-                    found = get(lsmt, idx, value);
-                    if (found == 0) {
-                        printf("%d:%d ", idx, *value);
-                    }
-                }
-                printf("\n");
-            }
-        } else {
-            return -1;
-        }
-        count++;
+    int final = 0;
+    int num = (rand() % (100 -  + 1)); 
+
+    int1 = num;
+    int2 = num+10;
+    final = int1;
+    printf("search index %d, value %d\n",final,  int2);
+
+    put(lsmt, num, int2);
+
+    for (int i = 1; i < 1000; i++)
+    {
+        int num = (rand() % (1000- i + 1)) + i;
+        int1 = i;
+        int2 = i+1;
+        put(lsmt, num, int2);
+        
     }
+    int1 = 20;
+    found = get(lsmt, final, value);
+    printf("result value %d\n", *value);
+    c = 'l';
+    idx=int1;
+    scan_out = 1;
+    help[0] = 1;
+    help[1] = 1;
+    //fptr = fopen(file_bfr, "rb");
+    
+    //---- end my test-----
+
+    // while (scanf("%c", &c) == 1) {
+    //     if (c == 'p') {
+    //         if (scanf("%d %d\n", &int1, &int2) == 2){
+    //             printf("values %d %d .\n", int1, int2);
+    //             put(lsmt, int1, int2);
+    //         };
+    //     } else if (c == 'g') {
+    //         if (scanf("%d\n", &int1) == 1) {
+    //             found = get(lsmt, int1, value);
+    //             if (found == 0) {
+    //                 printf("%d\n", *value);
+    //             } else {
+    //                 printf("\n");
+    //             }
+    //         };
+    //     } else if (c == 'd') {
+    //         scan_out = scanf("%d\n", &int1);
+    //         if (scan_out == 1)
+    //             erase(lsmt, int1);
+    //     } else if (c == 's'){
+    //         // Read the line change char
+    //         scan_out = scanf("%c", &c);
+    //         if (scan_out == 1)
+    //             print_statistics(lsmt);
+    //     } else if (c == 'l'){
+    //         // Read the line change char
+    //         scan_out = scanf("%s", file_bfr);
+    //         if (scan_out == 1) {
+    //             fptr = fopen(file_bfr, "rb");
+    //             while (fread(help, sizeof(int), 2, fptr) == 2) {
+    //                 put(lsmt, help[0], help[1]);
+    //             }
+    //             fclose(fptr);
+    //         }
+    //         // Read the line change char
+    //         scan_out = scanf("%c", &c);
+    //     } else if (c == 'r'){
+    //         if (scanf("%d %d\n", &int1, &int2) == 2){
+    //             for (idx=int1; idx<int2; idx++) {
+    //                 found = get(lsmt, idx, value);
+    //                 if (found == 0) {
+    //                     printf("%d:%d ", idx, *value);
+    //                 }
+    //             }
+    //             printf("\n");
+    //         }
+    //     } else {
+    //         return -1;
+    //     }
+    //     count++;
+    // }
 
     clock_t end = clock();
     float seconds = (float) (end - start) / CLOCKS_PER_SEC;

@@ -307,6 +307,8 @@ int get(lsmtree* lsmt, keyType key, valType *value) {
     } else {
         // start checking the levels
         ptr_lvl = (*lsmt).levels[i];
+        
+
         while (ptr_lvl != NULL) {
             // check the bloom filter, and move to
             // the next level if it's not here
@@ -323,6 +325,16 @@ int get(lsmtree* lsmt, keyType key, valType *value) {
                 num_files = (run_size * sizeof(data_chunk) + pagesize - 1) / pagesize;
 
                 bin_index = binary_fences(ptr_lvl->runs[idx].fence_p, 0, num_files - 1, key);
+
+                //printf("fence pointer %d\n", ptr_lvl->runs[idx].fence_p);
+                int size = sizeof(ptr_lvl->runs[idx].fence_p);
+                printf("bin_index %d\n", size);
+                for( int j = 0; j< size; j++)
+                    {
+                        printf("%fence pointer value", ptr_lvl->runs[idx].fence_p[j]);    
+                    }
+                printf("bin_index %d\n", bin_index);
+
                 if (bin_index == -1) {
                     // the key is bigger than all the fence pointers
                     continue;
