@@ -13,6 +13,7 @@ typedef struct buffer {
 int allocate_buffer(buffer** bfr, int max_size);
 int put_buffer(buffer* bfr, keyType key, valType value);
 int get_buffer(buffer* bfr, keyType key, valType* value);
+int get_bufferRange(buffer* bfr, keyType startKey, keyType endKey, valType *value, data_chunk rangeRes[], int range);
 int deallocate_buffer(buffer* bfr);
 
 #endif

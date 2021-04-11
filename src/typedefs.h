@@ -33,6 +33,7 @@ typedef struct bloom {
 typedef struct run {
     int run_size;
     int *fence_p;
+    //int *fence_new;
     char **files;
 } run;
 

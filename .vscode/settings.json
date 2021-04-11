@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "istream": "c",
+        "ostream": "c",
+        "lsm_tree.h": "c",
+        "iostream": "cpp"
+    }
+}

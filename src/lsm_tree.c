@@ -1,18 +1,21 @@
- #include "lsm_tree.h"
- #include "functions.h"
+#include "lsm_tree.h"
+#include "functions.h"
 
-int allocate(lsmtree** lsmt, int bfr_size, int depth, int fanout, double error) {
+int allocate(lsmtree **lsmt, int bfr_size, int depth, int fanout, double error)
+{
     buffer *bfr = NULL;
 
     // Check if the pointer is NULL
-    if ((*lsmt) != NULL) {
+    if ((*lsmt) != NULL)
+    {
         return -1;
     }
 
     // Allocate the memory for the hashtable
     (*lsmt) = malloc(sizeof(lsmtree));
     // Check if malloc failed
-    if ((*lsmt) == NULL) {
+    if ((*lsmt) == NULL)
+    {
         return -1;
     }
 
@@ -20,29 +23,38 @@ int allocate(lsmtree** lsmt, int bfr_size, int depth, int fanout, double error) 
     (**lsmt).fanout = fanout;
     (**lsmt).error = error;
 
-    if (allocate_buffer(&bfr, bfr_size) != 0) {
+    if (allocate_buffer(&bfr, bfr_size) != 0)
+    {
         return -1;
     }
     (**lsmt).bfr = bfr;
 
     (**lsmt).levels = malloc((**lsmt).max_depth * sizeof(level));
     // Check if malloc failed
-    if ((**lsmt).levels == NULL) {
+    if ((**lsmt).levels == NULL)
+    {
         return -1;
     }
     return 0;
 }
 
-int put(lsmtree* lsmt, keyType key, valType value) {
+int put(lsmtree *lsmt, keyType key, valType value)
+{
     // Check if the LSM tree is allocated
-    if (lsmt == NULL) {
+    if (lsmt == NULL)
+    {
         return -1;
     }
 
+    //printf(" inserting  %d, value %d to buffer \n", key,  value);
+
     // Try to fit it in the buffer
-    if(put_buffer((*lsmt).bfr, key, value) == 0) {
+    if (put_buffer((*lsmt).bfr, key, value) == 0)
+    {
         return 0;
-    } else if (put_buffer((*lsmt).bfr, key, value) == -2) {
+    }
+    else if (put_buffer((*lsmt).bfr, key, value) == -2)
+    {
         // The buffer is full; put everything in the next level
         int out, res;
 
@@ -50,104 +62,148 @@ int put(lsmtree* lsmt, keyType key, valType value) {
         if (out)
             (*lsmt).bfr->current_index -= out;
 
+        printf("flush to log after inserting  %d, value %d to buffer \n", key, value);
         res = flush(lsmt, 0);
         if (res)
             return -1;
 
         // Put the new value
-        if(put_buffer((*lsmt).bfr, key, value) == 0) {
+        if (put_buffer((*lsmt).bfr, key, value) == 0)
+        {
             return 0;
-        } else {
+        }
+        else
+        {
             return -1;
         }
-    } else{
+    }
+    else
+    {
         return -1;
     }
 }
 
-int flush(lsmtree* lsmt, int index) {
+int flush(lsmtree *lsmt, int index)
+{
     FILE *fptr;
     char file_bfr[CHAR_SIZE + EXTRA_SIZE];
     int idx, jdx, kdx, level_size, run_size;
     size_t pagesize = getpagesize();
 
     // create the level and run sizes, we'll use them frequently
-    level_size = pow((*lsmt).fanout, index + 1) * (*lsmt).bfr->max_size;
+    level_size = pow((*lsmt).fanout, index + 1) * (*lsmt).bfr->max_size; // power of
+
+    // printf("level  %d\n", index);
+    // printf("level size %d\n", level_size);
 
     // if the level doesn't exist, create it
-    if ((*lsmt).levels[index] == NULL) {
+    if ((*lsmt).levels[index] == NULL)
+    {
         bloom *blm_f = NULL;
 
-        if (allocate_filter(&blm_f, level_size, (*lsmt).error) != 0) {
+        if (allocate_filter(&blm_f, level_size, (*lsmt).error) != 0)
+        {
             return -1;
         }
         (*lsmt).levels[index] = malloc(sizeof(level));
-        if ((*lsmt).levels[index] == NULL) {
+        if ((*lsmt).levels[index] == NULL)
+        {
             return -1;
         }
         (*lsmt).levels[index]->curr_runs = 0;
         (*lsmt).levels[index]->curr_size = 0;
         (*lsmt).levels[index]->blm_f = blm_f;
         (*lsmt).levels[index]->runs = malloc(sizeof(run) * (*lsmt).fanout);
-        if ((*lsmt).levels[index]->runs == NULL) {
+        if ((*lsmt).levels[index]->runs == NULL)
+        {
             return -1;
         }
     }
 
-    if (index == 0) {
-        if (((*lsmt).levels[index]->curr_size + (*lsmt).bfr->current_index) > level_size) {
+    if (index == 0)
+    {
+        if (((*lsmt).levels[index]->curr_size + (*lsmt).bfr->current_index) > level_size)
+        {
             // clean up the level by pushing current contents down
             // and then put stuff in
             flush(lsmt, index + 1);
         }
 
         // the same check should not fail again
-        idx=0;
-        if (((*lsmt).levels[index]->curr_size + (*lsmt).bfr->current_index) <= level_size) {
+        idx = 0;
+        if (((*lsmt).levels[index]->curr_size + (*lsmt).bfr->current_index) <= level_size)
+        {
             // generate our runs stuff
             run_size = (*lsmt).bfr->current_index;
             (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_p = malloc(sizeof(int) * (run_size * sizeof(data_chunk) + pagesize - 1) / pagesize);
-            if ((*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_p == NULL) {
+            //(*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_new = malloc(sizeof(int) * (run_size * sizeof(data_chunk) + pagesize - 1) * 2/ pagesize);
+            //printf("fence point size %d\n", (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_p[0]);
+            //printf("fence pointer %d\n", ptr_lvl->runs[idx].fence_p);
+
+            //int size = sizeof((*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_p);
+            // printf("fence size %d\n", size);
+            // printf("page size %d\n", (int)pagesize);
+            // printf("chunck size %d\n", (int)(run_size * sizeof(data_chunk)));
+            // for (int j = 0; j < size; j++)
+            // {
+            //      printf("fence pointer value %d\n", (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_p[j]);
+            // }
+
+            if ((*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_p == NULL)
+            {
                 return -1;
             }
-            (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].files = (char **) malloc(sizeof(char *) * (run_size * sizeof(data_chunk) + pagesize - 1) / pagesize);
-            if ((*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].files == NULL) {
+            (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].files = (char **)malloc(sizeof(char *) * (run_size * sizeof(data_chunk) + pagesize - 1) / pagesize);
+            if ((*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].files == NULL)
+            {
                 return -1;
             }
             (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].run_size = 0;
             // for each file create the file name array
-            for (jdx=0; jdx<(int) ((run_size * sizeof(data_chunk) + pagesize - 1) / pagesize); jdx++) {
-                (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].files[jdx] = (char *) malloc(sizeof(char) * CHAR_SIZE);
-                if ((*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].files[jdx] == NULL) {
+            for (jdx = 0; jdx < (int)((run_size * sizeof(data_chunk) + pagesize - 1) / pagesize); jdx++)
+            {
+                (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].files[jdx] = (char *)malloc(sizeof(char) * CHAR_SIZE);
+                if ((*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].files[jdx] == NULL)
+                {
                     return -1;
                 }
             }
 
             // divide the files to pages
-            for (jdx=0; jdx < (int) ((run_size * sizeof(data_chunk) + pagesize - 1) / pagesize); jdx++) {
+            for (jdx = 0; jdx < (int)((run_size * sizeof(data_chunk) + pagesize - 1) / pagesize); jdx++)
+            {
                 snprintf((*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].files[jdx], CHAR_SIZE, "l%dr%df%d", index, (*lsmt).levels[index]->curr_runs, jdx);
 
                 // find max for fence pointer
                 // it makes a difference if the buffer has more elements than
                 // can fit in a page size or not
-                if ((*lsmt).bfr->current_index - jdx * pagesize / sizeof(data_chunk) >= pagesize / sizeof(data_chunk)) {
+                if ((*lsmt).bfr->current_index - jdx * pagesize / sizeof(data_chunk) >= pagesize / sizeof(data_chunk))
+                {
                     (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_p[jdx] = (*lsmt).bfr->bfr_array[(jdx + 1) * pagesize / sizeof(data_chunk) - 1].key;
-                } else {
+                }
+                else
+                {
                     (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_p[jdx] = (*lsmt).bfr->bfr_array[(*lsmt).bfr->current_index - jdx * pagesize / sizeof(data_chunk) - 1].key;
                 }
-
+                //printf("level %d\n", index);
+                //printf("fence pointer value %d\n", (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_p[jdx]) ;
                 // write data to files
                 snprintf(file_bfr, CHAR_SIZE + EXTRA_SIZE, "./data/%s.dat", (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].files[jdx]);
 
                 fptr = fopen(file_bfr, "wb");
-                if ((*lsmt).bfr->current_index - jdx * pagesize / sizeof(data_chunk) >= pagesize / sizeof(data_chunk)) {
-                    for (; idx<(int) ((jdx + 1) * pagesize/sizeof(data_chunk)); idx++) {
+                if ((*lsmt).bfr->current_index - jdx * pagesize / sizeof(data_chunk) >= pagesize / sizeof(data_chunk))
+                {
+                    for (; idx < (int)((jdx + 1) * pagesize / sizeof(data_chunk)); idx++)
+                    {
                         fwrite(&(*lsmt).bfr->bfr_array[idx].key, sizeof(int), 1, fptr);
                         fwrite(&(*lsmt).bfr->bfr_array[idx].value, sizeof(int), 1, fptr);
                         hash((*lsmt).levels[index]->blm_f, (*lsmt).bfr->bfr_array[idx].key);
                     }
-                } else {
-                    for (; idx<(*lsmt).bfr->current_index - (int) (jdx * pagesize / sizeof(data_chunk)); idx++) {
+                }
+                else
+                {
+                    for (; idx < (*lsmt).bfr->current_index - (int)(jdx * pagesize / sizeof(data_chunk)); idx++)
+                    {
                         fwrite(&(*lsmt).bfr->bfr_array[idx].key, sizeof(int), 1, fptr);
                         fwrite(&(*lsmt).bfr->bfr_array[idx].value, sizeof(int), 1, fptr);
                         hash((*lsmt).levels[index]->blm_f, (*lsmt).bfr->bfr_array[idx].key);
@@ -157,6 +213,13 @@ int flush(lsmtree* lsmt, int index) {
                 fclose(fptr);
             }
 
+            //int size = sizeof((*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_p);
+            // printf("fence size %d\n", size);
+            // for (int j = 0; j < size; j++)
+            // {
+            //      printf("fence pointer value %d\n", (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_p[j]);
+            // }
+
             // update the current size and runs
             (*lsmt).levels[index]->curr_size += (*lsmt).bfr->current_index;
             (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].run_size = (*lsmt).bfr->current_index;
@@ -165,30 +228,39 @@ int flush(lsmtree* lsmt, int index) {
             // soft reset the buffer
             (*lsmt).bfr->current_index = 0;
             return 0;
-        } else {
+        }
+        else
+        {
             return -1;
         }
-    } else {
-        if (((*lsmt).levels[index]->curr_size + (*lsmt).levels[index - 1]->curr_size) > level_size) {
+    }
+    else
+    {
+        if (((*lsmt).levels[index]->curr_size + (*lsmt).levels[index - 1]->curr_size) > level_size)
+        {
             flush(lsmt, index + 1);
         }
-        if (((*lsmt).levels[index]->curr_size + (*lsmt).levels[index - 1]->curr_size) <= level_size) {
+        if (((*lsmt).levels[index]->curr_size + (*lsmt).levels[index - 1]->curr_size) <= level_size)
+        {
             // need to load all the data of the previous level into memory,
             // sort it, and store it into this level
             int help[2];
             data_chunk *data_bfr;
-            data_bfr = (data_chunk *) malloc((*lsmt).levels[index - 1]->curr_size * sizeof(data_chunk));
+            data_bfr = (data_chunk *)malloc((*lsmt).levels[index - 1]->curr_size * sizeof(data_chunk));
 
             jdx = 0;
-            for (idx=0; idx < (*lsmt).levels[index - 1]->curr_runs; idx++) {
+            for (idx = 0; idx < (*lsmt).levels[index - 1]->curr_runs; idx++)
+            {
                 // we have multiple files, we need to open all of them
                 // we need the number of files of the previous level
-                run_size = (*lsmt).levels[index-1]->runs[idx].run_size;
-                for (kdx=0; kdx< (int) ((run_size * sizeof(data_chunk) + pagesize - 1) / pagesize); kdx++) {
+                run_size = (*lsmt).levels[index - 1]->runs[idx].run_size;
+                for (kdx = 0; kdx < (int)((run_size * sizeof(data_chunk) + pagesize - 1) / pagesize); kdx++)
+                {
                     snprintf(file_bfr, CHAR_SIZE + EXTRA_SIZE, "./data/%s.dat", (*lsmt).levels[index - 1]->runs[idx].files[kdx]);
                     fptr = fopen(file_bfr, "rb");
 
-                    while (fread(help, sizeof(int), 2, fptr) == 2) {
+                    while (fread(help, sizeof(int), 2, fptr) == 2)
+                    {
                         data_bfr[jdx].key = help[0];
                         data_bfr[jdx].value = help[1];
                         jdx++;
@@ -209,32 +281,40 @@ int flush(lsmtree* lsmt, int index) {
             // create the run stuff
             run_size = (*lsmt).levels[index - 1]->curr_size;
             (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_p = malloc(sizeof(int) * (run_size * sizeof(data_chunk) + pagesize - 1) / pagesize);
-            if ((*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_p == NULL) {
+            if ((*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_p == NULL)
+            {
                 return -1;
             }
-            (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].files = (char **) malloc(sizeof(char *) * (run_size * sizeof(data_chunk) + pagesize - 1) / pagesize);
-            if ((*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].files == NULL) {
+            (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].files = (char **)malloc(sizeof(char *) * (run_size * sizeof(data_chunk) + pagesize - 1) / pagesize);
+            if ((*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].files == NULL)
+            {
                 return -1;
             }
             (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].run_size = 0;
 
             // for each file create the file name array
-            for (jdx=0; jdx< (int) ((run_size * sizeof(data_chunk) + pagesize - 1)/ pagesize); jdx++) {
-                (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].files[jdx] = (char *) malloc(sizeof(char) * CHAR_SIZE);
-                if ((*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].files[jdx] == NULL) {
+            for (jdx = 0; jdx < (int)((run_size * sizeof(data_chunk) + pagesize - 1) / pagesize); jdx++)
+            {
+                (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].files[jdx] = (char *)malloc(sizeof(char) * CHAR_SIZE);
+                if ((*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].files[jdx] == NULL)
+                {
                     return -1;
                 }
             }
 
             // divide the files to pages
-            idx=0;
-            for (jdx=0; jdx < (int) ((run_size * sizeof(data_chunk) + pagesize - 1) / pagesize); jdx++) {
+            idx = 0;
+            for (jdx = 0; jdx < (int)((run_size * sizeof(data_chunk) + pagesize - 1) / pagesize); jdx++)
+            {
                 snprintf((*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].files[jdx], CHAR_SIZE, "l%dr%df%d", index, (*lsmt).levels[index]->curr_runs, jdx);
 
                 // find max for fence pointer
-                if ((*lsmt).levels[index - 1]->curr_size - jdx * pagesize / sizeof(data_chunk) >= pagesize / sizeof(data_chunk)) {
-                    (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_p[jdx] = data_bfr[(jdx + 1) * pagesize/sizeof(data_chunk) - 1].key;
-                } else {
+                if ((*lsmt).levels[index - 1]->curr_size - jdx * pagesize / sizeof(data_chunk) >= pagesize / sizeof(data_chunk))
+                {
+                    (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_p[jdx] = data_bfr[(jdx + 1) * pagesize / sizeof(data_chunk) - 1].key;
+                }
+                else
+                {
                     (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_p[jdx] = data_bfr[(*lsmt).levels[index - 1]->curr_size - jdx * pagesize / sizeof(data_chunk) - 1].key;
                 }
 
@@ -242,14 +322,19 @@ int flush(lsmtree* lsmt, int index) {
                 snprintf(file_bfr, CHAR_SIZE + EXTRA_SIZE, "./data/%s.dat", (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].files[jdx]);
 
                 fptr = fopen(file_bfr, "wb");
-                if ((*lsmt).levels[index - 1]->curr_size - jdx * pagesize / sizeof(data_chunk) >= pagesize / sizeof(data_chunk)) {
-                    for (; idx<(int) ((jdx + 1) * pagesize/sizeof(data_chunk)); idx++) {
+                if ((*lsmt).levels[index - 1]->curr_size - jdx * pagesize / sizeof(data_chunk) >= pagesize / sizeof(data_chunk))
+                {
+                    for (; idx < (int)((jdx + 1) * pagesize / sizeof(data_chunk)); idx++)
+                    {
                         fwrite(&data_bfr[idx].key, sizeof(int), 1, fptr);
                         fwrite(&data_bfr[idx].value, sizeof(int), 1, fptr);
                         hash((*lsmt).levels[index]->blm_f, data_bfr[idx].key);
                     }
-                } else {
-                    for (; idx<(*lsmt).levels[index - 1]->curr_size - (int) (jdx * pagesize / sizeof(data_chunk)); idx++) {
+                }
+                else
+                {
+                    for (; idx < (*lsmt).levels[index - 1]->curr_size - (int)(jdx * pagesize / sizeof(data_chunk)); idx++)
+                    {
                         fwrite(&data_bfr[idx].key, sizeof(int), 1, fptr);
                         fwrite(&data_bfr[idx].value, sizeof(int), 1, fptr);
                         hash((*lsmt).levels[index]->blm_f, data_bfr[idx].key);
@@ -265,9 +350,11 @@ int flush(lsmtree* lsmt, int index) {
             (*lsmt).levels[index]->curr_runs++;
 
             // soft reset the level
-            for (idx=0; idx<(*lsmt).levels[index - 1]->curr_runs; idx++) {
+            for (idx = 0; idx < (*lsmt).levels[index - 1]->curr_runs; idx++)
+            {
                 run_size = (*lsmt).levels[index - 1]->runs[idx].run_size;
-                for (jdx=0; jdx < (int) ((run_size * sizeof(data_chunk) + pagesize - 1)/ pagesize); jdx++) {
+                for (jdx = 0; jdx < (int)((run_size * sizeof(data_chunk) + pagesize - 1) / pagesize); jdx++)
+                {
                     free((*lsmt).levels[index - 1]->runs[idx].files[jdx]);
                 }
                 free((*lsmt).levels[index - 1]->runs[idx].fence_p);
@@ -276,93 +363,263 @@ int flush(lsmtree* lsmt, int index) {
             }
             (*lsmt).levels[index - 1]->curr_runs = 0;
             (*lsmt).levels[index - 1]->curr_size = 0;
-            memset((*lsmt).levels[index-1]->blm_f->blm_array, 0, (*lsmt).levels[index-1]->blm_f->m_bits);
+            memset((*lsmt).levels[index - 1]->blm_f->blm_array, 0, (*lsmt).levels[index - 1]->blm_f->m_bits);
 
             return 0;
-        } else {
+        }
+        else
+        {
             return -1;
         }
     }
 }
 
-int get(lsmtree* lsmt, keyType key, valType *value) {
-    int found, i=0, idx, jdx, current_size, bin_index, run_size, num_files, help[2];
+int getRange(lsmtree *lsmt, keyType startKey, keyType endKey, valType *value, data_chunk rangeRes[], int range)
+{
+    int found, i = 0, idx, jdx, current_size, bin_index, run_size, num_files, help[2];
     char file_bfr[CHAR_SIZE + EXTRA_SIZE];
     FILE *fptr;
     level *ptr_lvl;
     size_t pagesize = getpagesize();
 
+    //data_chunk dd = {1,1};
+    //rangeRes[1] = dd;
+    //endKey = 1;
     // check the lsmt tree is allocated
-    if (lsmt == NULL) {
+    if (lsmt == NULL)
+    {
         return -1;
     }
 
     // check the buffer first
-    found = get_buffer((*lsmt).bfr, key, value);
-    if (found == 0) {
+    //found = get_buffer((*lsmt).bfr, startKey, value);
+    found = get_bufferRange((*lsmt).bfr, startKey, endKey, value, rangeRes, range);
+    printf("found  %d\n", found);
+
+    for (int i = 0; i < range; i++)
+    {
+        //int num = (rand() % (100- i + 1)) + i;
+        //int1 = i;
+        //int2 = i+1;
+        printf("data in chunck after getbuffer range index %d, value %d\n", rangeRes[i].key, rangeRes[i].value);
+        //put(lsmt, int1, int2);
+    }
+
+    if (found == 0)
+    {
         return 0;
-    } else if (found == -5) {
+    }
+    else if (found == -5)
+    {
         // propagate -5 (deleted file)
         return -5;
-    } else {
+    }
+    else
+    {
         // start checking the levels
         ptr_lvl = (*lsmt).levels[i];
-        
 
-        while (ptr_lvl != NULL) {
+        while (ptr_lvl != NULL)
+        {
+
             // check the bloom filter, and move to
             // the next level if it's not here
-            if (!check_hash(ptr_lvl->blm_f, key)) {
-                ptr_lvl = (*lsmt).levels[++i];
-                continue;
-            }
+            // if (!check_hash(ptr_lvl->blm_f, startKey)) {
+            //     ptr_lvl = (*lsmt).levels[++i];
+            //     continue;
+            // }
             // check the runs in reverse order to make sure
             // we're checking the most recent one
+
+            int curInd = 0;
+            for (int i = 0; i < range; i++)
+            {
+                if (rangeRes[i].key == 0)
+                {
+                    curInd = i;
+                    i = range;
+                }
+            }
+
             current_size = pagesize / sizeof(data_chunk);
-            for (idx=ptr_lvl->curr_runs-1; idx>=0; idx--) {
+            for (idx = ptr_lvl->curr_runs - 1; idx >= 0; idx--)
+            {
                 // we need to define the number of files
                 run_size = ptr_lvl->runs[idx].run_size;
                 num_files = (run_size * sizeof(data_chunk) + pagesize - 1) / pagesize;
 
-                bin_index = binary_fences(ptr_lvl->runs[idx].fence_p, 0, num_files - 1, key);
+                bin_index = binary_fences(ptr_lvl->runs[idx].fence_p, 0, num_files - 1, startKey);
 
-                //printf("fence pointer %d\n", ptr_lvl->runs[idx].fence_p);
-                int size = sizeof(ptr_lvl->runs[idx].fence_p);
-                printf("bin_index %d\n", size);
-                for( int j = 0; j< size; j++)
-                    {
-                        printf("%fence pointer value", ptr_lvl->runs[idx].fence_p[j]);    
-                    }
-                printf("bin_index %d\n", bin_index);
+                printf("bin_index  %d\n", bin_index);
 
-                if (bin_index == -1) {
+                if (bin_index == -1)
+                {
                     // the key is bigger than all the fence pointers
                     continue;
                 }
 
                 // if the file is the final file we know its probably not full
-                if (bin_index == num_files - 1) {
+                if (bin_index == num_files - 1)
+                {
                     current_size = ptr_lvl->runs[idx].run_size - (num_files - 1) * pagesize / sizeof(data_chunk);
                 }
 
                 data_chunk *data_bfr;
-                data_bfr = (data_chunk *) malloc(current_size * sizeof(data_chunk));
+                data_bfr = (data_chunk *)malloc(current_size * sizeof(data_chunk));
                 // bring the particular file in memory and binary search
                 // to find the element we're looking for
                 snprintf(file_bfr, CHAR_SIZE + EXTRA_SIZE, "./data/%s.dat", ptr_lvl->runs[idx].files[bin_index]);
                 fptr = fopen(file_bfr, "rb");
 
                 jdx = 0;
-                while (fread(help, sizeof(int), 2, fptr) == 2) {
+                while (fread(help, sizeof(int), 2, fptr) == 2)
+                {
                     data_bfr[jdx].key = help[0];
                     data_bfr[jdx].value = help[1];
-                    if (data_bfr[jdx].key == key) {
-                        if (data_bfr[jdx].value != GRAVEYARD) {
+                    printf("masuk ke cari di level \n");
+                    if (data_bfr[jdx].key >= startKey && data_bfr[jdx].key <= endKey && checkIfExist(rangeRes, data_bfr[jdx].key, range) == 0)
+                    {
+                        if (data_bfr[jdx].value != GRAVEYARD)
+                        {
                             (*value) = data_bfr[jdx].value;
+
+                            rangeRes[curInd].key = data_bfr[jdx].key;
+                            rangeRes[curInd].value = data_bfr[jdx].value;
+                            curInd = curInd + 1;
+
+                            //fclose(fptr);
+                            //free(data_bfr);
+                            //return 0;
+                        }
+                        // else
+                        // {
+                        //     // -5 denotes deleted value
+                        //     //fclose(fptr);
+                        //     //free(data_bfr);
+                        //     //return -5;
+                        // }
+                    }
+                    jdx++;
+                }
+                fclose(fptr);
+                free(data_bfr);
+
+                // used to have a binary search for values
+                // but since we're reading from the files
+                // we can check it on the go
+            }
+            ptr_lvl = (*lsmt).levels[++i];
+        }
+    }
+
+    // we didn't find it
+    return -1;
+}
+
+int checkIfExist(data_chunk rangeRes[], keyType key, int size)
+{
+    int i = 0;
+    while (i < size)
+    {
+        if (rangeRes[i].key == key)
+        {
+            return 1;
+        }
+        i++;
+    }
+
+    return 0;
+}
+
+int get(lsmtree *lsmt, keyType key, valType *value)
+{
+    int found, i = 0, idx, jdx, current_size, bin_index, run_size, num_files, help[2];
+    char file_bfr[CHAR_SIZE + EXTRA_SIZE];
+    FILE *fptr;
+    level *ptr_lvl;
+    size_t pagesize = getpagesize();
+
+    // check the lsmt tree is allocated
+    if (lsmt == NULL)
+    {
+        return -1;
+    }
+
+    // check the buffer first
+    found = get_buffer((*lsmt).bfr, key, value);
+    if (found == 0)
+    {
+        return 0;
+    }
+    else if (found == -5)
+    {
+        // propagate -5 (deleted file)
+        return -5;
+    }
+    else
+    {
+        // start checking the levels
+        ptr_lvl = (*lsmt).levels[i];
+
+        while (ptr_lvl != NULL)
+        {
+
+            //printf("level  %d\n", i);
+
+            // check the bloom filter, and move to
+            // the next level if it's not here
+            if (!check_hash(ptr_lvl->blm_f, key))
+            {
+                ptr_lvl = (*lsmt).levels[++i];
+                continue;
+            }
+            // check the runs in reverse order to make sure
+            // we're checking the most recent one
+            current_size = pagesize / sizeof(data_chunk);
+            for (idx = ptr_lvl->curr_runs - 1; idx >= 0; idx--)
+            {
+                // we need to define the number of files
+                run_size = ptr_lvl->runs[idx].run_size;
+                num_files = (run_size * sizeof(data_chunk) + pagesize - 1) / pagesize;
+
+                bin_index = binary_fences(ptr_lvl->runs[idx].fence_p, 0, num_files - 1, key);
+
+                if (bin_index == -1)
+                {
+                    // the key is bigger than all the fence pointers
+                    continue;
+                }
+
+                // if the file is the final file we know its probably not full
+                if (bin_index == num_files - 1)
+                {
+                    current_size = ptr_lvl->runs[idx].run_size - (num_files - 1) * pagesize / sizeof(data_chunk);
+                }
+
+                data_chunk *data_bfr;
+                data_bfr = (data_chunk *)malloc(current_size * sizeof(data_chunk));
+                // bring the particular file in memory and binary search
+                // to find the element we're looking for
+                snprintf(file_bfr, CHAR_SIZE + EXTRA_SIZE, "./data/%s.dat", ptr_lvl->runs[idx].files[bin_index]);
+                fptr = fopen(file_bfr, "rb");
+
+                jdx = 0;
+                while (fread(help, sizeof(int), 2, fptr) == 2)
+                {
+                    data_bfr[jdx].key = help[0];
+                    data_bfr[jdx].value = help[1];
+                    if (data_bfr[jdx].key == key)
+                    {
+                        if (data_bfr[jdx].value != GRAVEYARD)
+                        {
+                            (*value) = data_bfr[jdx].value;
+
                             fclose(fptr);
                             free(data_bfr);
                             return 0;
-                        } else {
+                        }
+                        else
+                        {
                             // -5 denotes deleted value
                             fclose(fptr);
                             free(data_bfr);
@@ -386,45 +643,58 @@ int get(lsmtree* lsmt, keyType key, valType *value) {
     return -1;
 }
 
-int erase(lsmtree* lsmt, keyType key) {
+int erase(lsmtree *lsmt, keyType key)
+{
     int idx;
 
     //Check the lsmt tree is allocated
-    if (lsmt == NULL) {
+    if (lsmt == NULL)
+    {
         return -1;
     }
 
     // We will check first if we can delete it from the buffer, so that we don't fill our tree with garbage
-    if ((*lsmt).bfr->bfr_array == NULL) {
+    if ((*lsmt).bfr->bfr_array == NULL)
+    {
         // -3 to differentiate from the -1 of core structure missalocation
         return -3;
-    } else {
-        for (idx=0; idx<(*lsmt).bfr->current_index; idx++) {
-            if ((*lsmt).bfr->bfr_array[idx].key == key) {
+    }
+    else
+    {
+        for (idx = 0; idx < (*lsmt).bfr->current_index; idx++)
+        {
+            if ((*lsmt).bfr->bfr_array[idx].key == key)
+            {
                 (*lsmt).bfr->bfr_array[idx].value = GRAVEYARD;
             }
         }
     }
 
-    if (put(lsmt, key, GRAVEYARD) == 0) {
+    if (put(lsmt, key, GRAVEYARD) == 0)
+    {
         return 0;
-    } else{
+    }
+    else
+    {
         return -1;
     }
 }
 
-int print_statistics(lsmtree* lsmt) {
-    int g_count=0, l_count=0, i=0, idx, jdx, kdx, run_size;
+int print_statistics(lsmtree *lsmt)
+{
+    int g_count = 0, l_count = 0, i = 0, idx, jdx, kdx, run_size;
     size_t pagesize = getpagesize();
     char file_bfr[CHAR_SIZE + EXTRA_SIZE];
     level *ptr_lvl;
     FILE *fptr;
 
-    if (lsmt == NULL) {
+    if (lsmt == NULL)
+    {
         return -1;
     }
 
-    if ((*lsmt).bfr == NULL) {
+    if ((*lsmt).bfr == NULL)
+    {
         return -1;
     }
 
@@ -435,7 +705,8 @@ int print_statistics(lsmtree* lsmt) {
 
     l_count = 0;
     ptr_lvl = (*lsmt).levels[i];
-    while (ptr_lvl != NULL) {
+    while (ptr_lvl != NULL)
+    {
         g_count += (*lsmt).levels[i]->curr_size;
         l_count += (*lsmt).levels[i]->curr_size;
 
@@ -445,10 +716,14 @@ int print_statistics(lsmtree* lsmt) {
     }
     printf("\nLogical Pairs: %d\n", g_count);
 
-    for (idx=0; idx<(*lsmt).bfr->current_index; idx++) {
-        if ((*lsmt).bfr->bfr_array[idx].value == GRAVEYARD) {
+    for (idx = 0; idx < (*lsmt).bfr->current_index; idx++)
+    {
+        if ((*lsmt).bfr->bfr_array[idx].value == GRAVEYARD)
+        {
             printf("%d:DEL:L0 ", (*lsmt).bfr->bfr_array[idx].key);
-        } else {
+        }
+        else
+        {
             printf("%d:%d:L0 ", (*lsmt).bfr->bfr_array[idx].key, (*lsmt).bfr->bfr_array[idx].value);
         }
     }
@@ -456,21 +731,25 @@ int print_statistics(lsmtree* lsmt) {
 
     i = 0;
     ptr_lvl = (*lsmt).levels[i];
-    while (ptr_lvl != NULL) {
+    while (ptr_lvl != NULL)
+    {
         int help[2];
         data_chunk *data_bfr;
-        data_bfr = (data_chunk *) malloc(ptr_lvl->curr_size * sizeof(data_chunk));
+        data_bfr = (data_chunk *)malloc(ptr_lvl->curr_size * sizeof(data_chunk));
 
         jdx = 0;
-        for (idx=0; idx < ptr_lvl->curr_runs; idx++) {
+        for (idx = 0; idx < ptr_lvl->curr_runs; idx++)
+        {
             // we have multiple files, we need to open all of them
             // we need the number of files of the previous level
             run_size = ptr_lvl->runs[idx].run_size;
-            for (kdx=0; kdx< (int) ((run_size * sizeof(data_chunk) + pagesize - 1) / pagesize); kdx++) {
+            for (kdx = 0; kdx < (int)((run_size * sizeof(data_chunk) + pagesize - 1) / pagesize); kdx++)
+            {
                 snprintf(file_bfr, CHAR_SIZE + EXTRA_SIZE, "./data/%s.dat", ptr_lvl->runs[idx].files[kdx]);
 
                 fptr = fopen(file_bfr, "rb");
-                while (fread(help, sizeof(int), 2, fptr) == 2) {
+                while (fread(help, sizeof(int), 2, fptr) == 2)
+                {
                     data_bfr[jdx].key = help[0];
                     data_bfr[jdx].value = help[1];
                     jdx++;
@@ -479,10 +758,14 @@ int print_statistics(lsmtree* lsmt) {
             }
         }
 
-        for (idx=0; idx<ptr_lvl->curr_size; idx++) {
-            if (data_bfr[idx].value == GRAVEYARD) {
+        for (idx = 0; idx < ptr_lvl->curr_size; idx++)
+        {
+            if (data_bfr[idx].value == GRAVEYARD)
+            {
                 printf("%d:DEL:L%d ", data_bfr[idx].key, i + 1);
-            } else {
+            }
+            else
+            {
                 printf("%d:%d:L%d ", data_bfr[idx].key, data_bfr[idx].value, i + 1);
             }
         }
@@ -494,18 +777,21 @@ int print_statistics(lsmtree* lsmt) {
     return 0;
 }
 
-int deallocate(lsmtree* lsmt) {
+int deallocate(lsmtree *lsmt)
+{
     // need to empty the LSM tree
-    int i=0, idx, jdx, run_size;
+    int i = 0, idx, jdx, run_size;
     level *ptr_lvl;
     size_t pagesize = getpagesize();
 
-
     ptr_lvl = (*lsmt).levels[i];
-    while (ptr_lvl != NULL) {
-        for (idx=0; idx<ptr_lvl->curr_runs; idx++) {
+    while (ptr_lvl != NULL)
+    {
+        for (idx = 0; idx < ptr_lvl->curr_runs; idx++)
+        {
             run_size = ptr_lvl->runs[idx].run_size;
-            for (jdx=0; jdx < (int) ((run_size * sizeof(data_chunk) + pagesize - 1)/ pagesize); jdx++) {
+            for (jdx = 0; jdx < (int)((run_size * sizeof(data_chunk) + pagesize - 1) / pagesize); jdx++)
+            {
                 free(ptr_lvl->runs[idx].files[jdx]);
             }
             free(ptr_lvl->runs[idx].fence_p);

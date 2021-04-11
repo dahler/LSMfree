@@ -22,5 +22,7 @@ int erase(lsmtree* lsmt, keyType key);
 int flush(lsmtree* lsmt, int index);
 int deallocate(lsmtree* lsmt);
 int print_statistics(lsmtree* lsmt);
+int getRange(lsmtree* lsmt, keyType keyStart, keyType keyEnd, valType *value, data_chunk rangeRes[], int range);
+int checkIfExist(data_chunk rangeRes[], keyType key, int size);
 
 #endif

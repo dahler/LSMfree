@@ -82,6 +82,53 @@ int get_buffer(buffer* bfr, keyType key, valType *value) {
     return -1;
 }
 
+int get_bufferRange(buffer* bfr, keyType startKey, keyType endKey, valType *value, data_chunk rangeRes[], int range) {
+    int idx;
+    // Check if the hashtable is allocated
+    if (bfr == NULL) {
+        return -1;
+    }
+
+    //endKey = 1;
+
+    if ((*bfr).bfr_array == NULL) {
+        // -3 to differentiate from the -1 of core structure missalocation
+        return -3;
+    } else {
+        // check in reverse order to make sure we get the most recent one
+        int curInd = 0;
+        for (int i = 0; i < range; i++ )
+        {
+            if (rangeRes[i].key == 0)
+            {
+                curInd = i;
+                i = range;
+            }
+        }
+
+        for (idx=(*bfr).current_index - 1; idx>=0; idx--) {
+            if ((*bfr).bfr_array[idx].key >= startKey && (*bfr).bfr_array[idx].key <= endKey) {
+                
+                
+                if ((*bfr).bfr_array[idx].value != GRAVEYARD) {
+                    (*value) = (*bfr).bfr_array[idx].value;
+
+                    rangeRes[curInd].key = (*bfr).bfr_array[idx].key;
+                    rangeRes[curInd].value = (*bfr).bfr_array[idx].value;
+                    curInd = curInd+1;
+                    //data_chunk dd = {1,1};
+                    //return 0;
+                } else {
+                    // -5 denotes deleted value
+                    //return -5;
+                }
+            }
+        }
+        return 10;
+    }
+    return -1;
+}
+
 // This method frees all memory occupied by the hash table.
 // It returns an error code, 0 for success and -1 otherwise.
 int deallocate_buffer(buffer* bfr) {

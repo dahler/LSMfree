@@ -11,7 +11,7 @@ int main() {
     lsmtree *lsmt = NULL;
     char c;
     valType int1, int2, *value;
-    int bfr_size=32, depth=10, fanout=10,  count,  found, scan_out, idx, help[2];
+    int bfr_size=32, depth=1, fanout=2,  count,  found, scan_out, idx, help[2];
     double error=0.01;
     //char file_bfr[CHAR_SIZE + EXTRA_SIZE];
     //FILE *fptr;
@@ -42,16 +42,17 @@ int main() {
 
     put(lsmt, num, int2);
 
-    for (int i = 1; i < 1000; i++)
+    for (int i = 1; i < 100; i++)
     {
-        int num = (rand() % (1000- i + 1)) + i;
+        //int num = (rand() % (100- i + 1)) + i;
         int1 = i;
         int2 = i+1;
-        put(lsmt, num, int2);
+        //printf("inserting index %d, value %d\n",int1,  int2);
+        put(lsmt, int1, int2);
         
     }
-    int1 = 20;
-    found = get(lsmt, final, value);
+    int1 = 90;
+    found = get(lsmt, int1, value);
     printf("result value %d\n", *value);
     c = 'l';
     idx=int1;
@@ -60,6 +61,51 @@ int main() {
     help[1] = 1;
     //fptr = fopen(file_bfr, "rb");
     
+    //int number_of_elements = 10;
+    
+
+    //data_chunk dd = {3,1};
+    //arrayRes[1] = dd;
+
+    int1 = 85;
+    int2 = 100;
+    int range = int2 - int1;
+
+    data_chunk* arrayRes = malloc(range * sizeof(data_chunk));
+    for (int i = 0; i < range; i++)
+    {
+        arrayRes[i].key = 0;
+        arrayRes[i].value = 0;
+    }
+
+    // for (int i = 0; i < range; i++)
+    // {
+    //     //int num = (rand() % (100- i + 1)) + i;
+    //     //int1 = i;
+    //     //int2 = i+1;
+    //     printf("data in chunck before search index %d, value %d\n",arrayRes[i].key,  arrayRes[i].value);
+    //     //put(lsmt, int1, int2);
+        
+    // }
+
+    found = getRange(lsmt, int1, int2, value, arrayRes, range);
+
+    for (int i = 0; i < range; i++)
+    {
+        //int num = (rand() % (100- i + 1)) + i;
+        //int1 = i;
+        //int2 = i+1;
+        printf("data in chunck after search index %d, value %d\n",arrayRes[i].key,  arrayRes[i].value);
+        //put(lsmt, int1, int2);
+        
+    }
+
+    free(arrayRes);
+
+
+
+    //endKey = 1;
+
     //---- end my test-----
 
     // while (scanf("%c", &c) == 1) {

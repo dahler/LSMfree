@@ -12,6 +12,10 @@ main: buffer.o functions.o bloom.o lsm_tree.o main.o murmurhash2.o
 	[ ! -d data ] && mkdir data
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS) $(LIBS)
 
+workloadgenerator: workload_generator.cpp
+	g++ -g -std=c++0x -o $@ $^
+
 
 clean:
 	rm -rf functions bloom murmurhash2 main data *.o
+	rm workloadgenerator
