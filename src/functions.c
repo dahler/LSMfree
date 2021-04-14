@@ -131,3 +131,10 @@ int binary_values(data_chunk *values, int start, int end, keyType key) {
     // present in array
     return -1;
 }
+
+int getRandoms(int lower, int upper)
+{
+    int num = (rand() %
+           (upper - lower + 1)) + lower;
+    return num;
+}

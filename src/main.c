@@ -12,7 +12,7 @@ int main()
   lsmtree *lsmt = NULL;
   //char c;
   valType int1, int2, *value;
-  int bfr_size = 256, depth = 10, fanout = 2, count, found;
+  int bfr_size = 256, depth = 500, fanout = 2, count, found;
   double error = 0.01;
   //char file_bfr[CHAR_SIZE + EXTRA_SIZE];
   //FILE *fptr;
@@ -44,10 +44,7 @@ int main()
 
   while (fgets(line, sizeof(line), file))
   {
-    /* note that fgets don't strip the terminating \n, checking its
-           presence would allow to handle lines longer that sizeof(line) */
-    //printf("%s", line);
-
+  
     ind = strtok(line, " ");
     val = strtok(NULL, " ");
 
@@ -55,10 +52,8 @@ int main()
     valu = atoi(val);
     put(lsmt, index, valu);
 
-    //printf(" index %d, value %d\n", index, valu);
   }
-  /* may check feof here to make a difference between eof and io failure -- network
-       timeout for instance */
+
 
   fclose(file);
 
@@ -66,28 +61,17 @@ int main()
 
   count = 0;
   value = (valType *)malloc(sizeof(valType));
-  //int final = 0;
-  //int num = (rand() % (100 - +1));
+  int range= 1000;
+  int epocs = 100;
+  float timeKeep[epocs];
 
-  //fptr = fopen(file_bfr, "rb");
 
-  //int number_of_elements = 10;
-
-  //data_chunk dd = {3,1};
-  //arrayRes[1] = dd;
-  int range= 10000;
   data_chunk* arrayRes = (data_chunk *)malloc((range+1) * sizeof(data_chunk));
-  for (int j = 0; j < 10; j++)
+  for (int j = 0; j < epocs; j++)
   {
     count = j;
-
-    //int1 = 90000;
-    int1 = count * 10000;
+    int1 = getRandoms(0, 90000);
     int2 = int1 + range;
-    
-    //data_chunk *arrayRes
-    // arrayRes = realloc(arrayRes, range);
-    //range = range;
     
     for (int i = 0; i < range; i++)
     {
@@ -98,44 +82,37 @@ int main()
     printf("get range \n");
     clock_t start = clock();
     found = getRange(lsmt, int1, int2, value, arrayRes, range);
+    // found = merge_sort( arrayRes, 0, range);
+    // for (int kk =0 ; kk < range; kk++)
+    // {
+    //   if (arrayRes[kk].key != 0)
+    //   {
+    //   put(lsmt, arrayRes[kk].key, arrayRes[kk].value);
+    //   }
+    // }
+
     clock_t end = clock();
     float seconds = (float)(end - start) / CLOCKS_PER_SEC;
 
-    for (int i = 0; i < range; i++)
-    {
-      printf("data before sort  index %d, value %d\n", arrayRes[i].key, arrayRes[i].value);
-    }
+    timeKeep[j] = seconds;
 
-    printf("sort merge \n");
-    found = merge_sort( arrayRes, 0, range);
+    // for (int i = 0; i < range; i++)
+    // {
+    //   printf("data before sort  index %d, value %d\n", arrayRes[i].key, arrayRes[i].value);
+    // }
 
-    for (int i = 0; i < range; i++)
-    {
-      printf("data in chunck after search index %d, value %d\n", arrayRes[i].key, arrayRes[i].value);
-    }
-
-    
-    //printf("----------------------------------------------------------------\n");
+ 
     printf("----------------------------------------------------------------\n");
     printf(" search from %d, to %d\n", int1, int2);
-    printf("%d operations took %.04f seconds.\n", count, seconds);
-    //printf("----------------------------------------------------------------\n");
-    //printf("----------------------------------------------------------------\n");
-
+    printf("operation %d took %.04f seconds.\n", count, seconds);
     
   }
 
-  //free(arrayRes);
-
-  // for (int i = 0; i < range; i++)
-  // {
-  //   //int num = (rand() % (100- i + 1)) + i;
-  //   //int1 = i;
-  //   //int2 = i+1;
-  //   printf("data in chunck after search index %d, value %d\n", arrayRes[i].key, arrayRes[i].value);
-  //   //put(lsmt, int1, int2);
-  // }
-
+  FILE *filePtr;
+  filePtr = fopen("result/test-withOutUpdate-100.data","w");
+   for (int i = 0; i < epocs; i++) {
+      fprintf(filePtr, "%.04f\n", timeKeep[i]);
+   };
   
 
   //endKey = 1;
@@ -315,3 +292,5 @@ int main(void) {
   return 0;
 }
 */
+
+
