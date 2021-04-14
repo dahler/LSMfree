@@ -1,1 +1,3 @@
 generated-data/data_1000000-elems_0-kperct_5-lperct_1seed1618168866.dat
+generated-data/data_1000-elems_10-kperct_5-lperct_1seed1618183940.dat
+generated-data/data_1000-elems_10-kperct_5-lperct_1seed1618184606.txt

@@ -83,6 +83,8 @@ int merge_sort(data_chunk *data_array, int start, int end) {
     return 0;
 }
 
+
+
 int binary_fences(int *fences, int start, int end, keyType key) {
     int mid = start + (end - start) / 2, ret;
 

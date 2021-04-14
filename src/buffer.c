@@ -118,9 +118,10 @@ int get_bufferRange(buffer* bfr, keyType startKey, keyType endKey, valType *valu
                     curInd = curInd+1;
                     //data_chunk dd = {1,1};
                     //return 0;
-                } else {
-                    // -5 denotes deleted value
-                    //return -5;
+                } 
+                if (curInd == range)
+                {
+                    return 7;
                 }
             }
         }

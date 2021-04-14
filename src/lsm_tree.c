@@ -62,7 +62,7 @@ int put(lsmtree *lsmt, keyType key, valType value)
         if (out)
             (*lsmt).bfr->current_index -= out;
 
-        printf("flush to log after inserting  %d, value %d to buffer \n", key, value);
+        //printf("flush to log after inserting  %d, value %d to buffer \n", key, value);
         res = flush(lsmt, 0);
         if (res)
             return -1;
@@ -136,6 +136,8 @@ int flush(lsmtree *lsmt, int index)
             // generate our runs stuff
             run_size = (*lsmt).bfr->current_index;
             (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_p = malloc(sizeof(int) * (run_size * sizeof(data_chunk) + pagesize - 1) / pagesize);
+            (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_start = malloc(sizeof(int) * (run_size * sizeof(data_chunk) + pagesize - 1) / pagesize);
+            (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_end = malloc(sizeof(int) * (run_size * sizeof(data_chunk) + pagesize - 1) / pagesize);
             //(*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_new = malloc(sizeof(int) * (run_size * sizeof(data_chunk) + pagesize - 1) * 2/ pagesize);
             //printf("fence point size %d\n", (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_p[0]);
             //printf("fence pointer %d\n", ptr_lvl->runs[idx].fence_p);
@@ -177,14 +179,20 @@ int flush(lsmtree *lsmt, int index)
                 // find max for fence pointer
                 // it makes a difference if the buffer has more elements than
                 // can fit in a page size or not
+
+                (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_start[jdx] = (*lsmt).bfr->bfr_array[jdx * pagesize / sizeof(data_chunk)].key;
+
                 if ((*lsmt).bfr->current_index - jdx * pagesize / sizeof(data_chunk) >= pagesize / sizeof(data_chunk))
                 {
                     (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_p[jdx] = (*lsmt).bfr->bfr_array[(jdx + 1) * pagesize / sizeof(data_chunk) - 1].key;
+                    (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_end[jdx] = (*lsmt).bfr->bfr_array[(jdx + 1) * pagesize / sizeof(data_chunk) - 1].key;
                 }
                 else
                 {
                     (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_p[jdx] = (*lsmt).bfr->bfr_array[(*lsmt).bfr->current_index - jdx * pagesize / sizeof(data_chunk) - 1].key;
+                    (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_end[jdx] = (*lsmt).bfr->bfr_array[(*lsmt).bfr->current_index - jdx * pagesize / sizeof(data_chunk) - 1].key;
                 }
+
                 //printf("level %d\n", index);
                 //printf("fence pointer value %d\n", (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_p[jdx]) ;
                 // write data to files
@@ -281,6 +289,8 @@ int flush(lsmtree *lsmt, int index)
             // create the run stuff
             run_size = (*lsmt).levels[index - 1]->curr_size;
             (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_p = malloc(sizeof(int) * (run_size * sizeof(data_chunk) + pagesize - 1) / pagesize);
+            (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_start = malloc(sizeof(int) * (run_size * sizeof(data_chunk) + pagesize - 1) / pagesize);
+            (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_end = malloc(sizeof(int) * (run_size * sizeof(data_chunk) + pagesize - 1) / pagesize);
             if ((*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_p == NULL)
             {
                 return -1;
@@ -308,14 +318,17 @@ int flush(lsmtree *lsmt, int index)
             {
                 snprintf((*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].files[jdx], CHAR_SIZE, "l%dr%df%d", index, (*lsmt).levels[index]->curr_runs, jdx);
 
+                (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_start[jdx] = data_bfr[jdx * pagesize / sizeof(data_chunk)].key;
                 // find max for fence pointer
                 if ((*lsmt).levels[index - 1]->curr_size - jdx * pagesize / sizeof(data_chunk) >= pagesize / sizeof(data_chunk))
                 {
                     (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_p[jdx] = data_bfr[(jdx + 1) * pagesize / sizeof(data_chunk) - 1].key;
+                    (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_end[jdx] = data_bfr[(jdx + 1) * pagesize / sizeof(data_chunk) - 1].key;
                 }
                 else
                 {
                     (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_p[jdx] = data_bfr[(*lsmt).levels[index - 1]->curr_size - jdx * pagesize / sizeof(data_chunk) - 1].key;
+                    (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_end[jdx] = data_bfr[(*lsmt).levels[index - 1]->curr_size - jdx * pagesize / sizeof(data_chunk) - 1].key;;
                 }
 
                 // write data to files
@@ -358,6 +371,8 @@ int flush(lsmtree *lsmt, int index)
                     free((*lsmt).levels[index - 1]->runs[idx].files[jdx]);
                 }
                 free((*lsmt).levels[index - 1]->runs[idx].fence_p);
+                free((*lsmt).levels[index - 1]->runs[idx].fence_start);
+                free((*lsmt).levels[index - 1]->runs[idx].fence_end);
                 free((*lsmt).levels[index - 1]->runs[idx].files);
                 (*lsmt).levels[index - 1]->runs[idx].run_size = 0;
             }
@@ -381,7 +396,7 @@ int getRange(lsmtree *lsmt, keyType startKey, keyType endKey, valType *value, da
     FILE *fptr;
     level *ptr_lvl;
     size_t pagesize = getpagesize();
-
+    //printf(" search LSM Tree from %d, to %d\n", startKey, endKey);
     //data_chunk dd = {1,1};
     //rangeRes[1] = dd;
     //endKey = 1;
@@ -394,25 +409,25 @@ int getRange(lsmtree *lsmt, keyType startKey, keyType endKey, valType *value, da
     // check the buffer first
     //found = get_buffer((*lsmt).bfr, startKey, value);
     found = get_bufferRange((*lsmt).bfr, startKey, endKey, value, rangeRes, range);
-    printf("found  %d\n", found);
+    //printf("found  %d\n", found);
 
-    for (int i = 0; i < range; i++)
-    {
-        //int num = (rand() % (100- i + 1)) + i;
-        //int1 = i;
-        //int2 = i+1;
-        printf("data in chunck after getbuffer range index %d, value %d\n", rangeRes[i].key, rangeRes[i].value);
-        //put(lsmt, int1, int2);
-    }
+    // for (int i = 0; i < range; i++)
+    // {
+    //     //int num = (rand() % (100- i + 1)) + i;
+    //     //int1 = i;
+    //     //int2 = i+1;
+    //     //printf("data in chunck after getbuffer range index %d, value %d\n", rangeRes[i].key, rangeRes[i].value);
+    //     //put(lsmt, int1, int2);
+    // }
 
     if (found == 0)
     {
         return 0;
     }
-    else if (found == -5)
+    else if (found == 7)
     {
         // propagate -5 (deleted file)
-        return -5;
+        return 7;
     }
     else
     {
@@ -421,7 +436,7 @@ int getRange(lsmtree *lsmt, keyType startKey, keyType endKey, valType *value, da
 
         while (ptr_lvl != NULL)
         {
-
+            printf("checking level  %d\n", i);
             // check the bloom filter, and move to
             // the next level if it's not here
             // if (!check_hash(ptr_lvl->blm_f, startKey)) {
@@ -447,66 +462,93 @@ int getRange(lsmtree *lsmt, keyType startKey, keyType endKey, valType *value, da
                 // we need to define the number of files
                 run_size = ptr_lvl->runs[idx].run_size;
                 num_files = (run_size * sizeof(data_chunk) + pagesize - 1) / pagesize;
+                bin_index = 0;
+                //bin_index = binary_fences(ptr_lvl->runs[idx].fence_p, 0, num_files - 1, endKey);
+                //printf("bin index %d \n", bin_index);
 
-                bin_index = binary_fences(ptr_lvl->runs[idx].fence_p, 0, num_files - 1, startKey);
+                //int sizeFence = sizeof ptr_lvl->runs[idx].fence_p / sizeof ptr_lvl->runs[idx].fence_p[0];
 
-                printf("bin_index  %d\n", bin_index);
-
-                if (bin_index == -1)
+                for (int k = 0; k < num_files; k++)
                 {
-                    // the key is bigger than all the fence pointers
-                    continue;
-                }
+                    printf("fence %d %d \n", ptr_lvl->runs[idx].fence_start[k], ptr_lvl->runs[idx].fence_end[k]);
 
-                // if the file is the final file we know its probably not full
-                if (bin_index == num_files - 1)
-                {
-                    current_size = ptr_lvl->runs[idx].run_size - (num_files - 1) * pagesize / sizeof(data_chunk);
-                }
-
-                data_chunk *data_bfr;
-                data_bfr = (data_chunk *)malloc(current_size * sizeof(data_chunk));
-                // bring the particular file in memory and binary search
-                // to find the element we're looking for
-                snprintf(file_bfr, CHAR_SIZE + EXTRA_SIZE, "./data/%s.dat", ptr_lvl->runs[idx].files[bin_index]);
-                fptr = fopen(file_bfr, "rb");
-
-                jdx = 0;
-                while (fread(help, sizeof(int), 2, fptr) == 2)
-                {
-                    data_bfr[jdx].key = help[0];
-                    data_bfr[jdx].value = help[1];
-                    printf("masuk ke cari di level \n");
-                    if (data_bfr[jdx].key >= startKey && data_bfr[jdx].key <= endKey && checkIfExist(rangeRes, data_bfr[jdx].key, range) == 0)
+                    if (endKey < ptr_lvl->runs[idx].fence_start[k]   || startKey >  ptr_lvl->runs[idx].fence_end[k])
                     {
-                        if (data_bfr[jdx].value != GRAVEYARD)
-                        {
-                            (*value) = data_bfr[jdx].value;
-
-                            rangeRes[curInd].key = data_bfr[jdx].key;
-                            rangeRes[curInd].value = data_bfr[jdx].value;
-                            curInd = curInd + 1;
-
-                            //fclose(fptr);
-                            //free(data_bfr);
-                            //return 0;
-                        }
-                        // else
-                        // {
-                        //     // -5 denotes deleted value
-                        //     //fclose(fptr);
-                        //     //free(data_bfr);
-                        //     //return -5;
-                        // }
+                        continue;
                     }
-                    jdx++;
-                }
-                fclose(fptr);
-                free(data_bfr);
+                    printf("fence yang dipakai %d %d \n", ptr_lvl->runs[idx].fence_start[k], ptr_lvl->runs[idx].fence_end[k]);
+                    //if (bin_index == -1)
+                    //{
+                    //    printf("bin index = -1 \n");
+                    // the key is bigger than all the fence pointers
+                    //    continue;
+                    //}
 
-                // used to have a binary search for values
-                // but since we're reading from the files
-                // we can check it on the go
+                    // if the file is the final file we know its probably not full
+                    //if (bin_index == num_files - 1)
+                    //{
+
+                    //    current_size = ptr_lvl->runs[idx].run_size - (num_files - 1) * pagesize / sizeof(data_chunk);
+                    //}
+
+                    data_chunk *data_bfr;
+                    data_bfr = (data_chunk *)malloc(current_size * sizeof(data_chunk));
+                    // bring the particular file in memory and binary search
+                    // to find the element we're looking for
+                    //snprintf(file_bfr, CHAR_SIZE + EXTRA_SIZE, "./data/%s.dat", ptr_lvl->runs[idx].files[bin_index]);
+
+                    snprintf(file_bfr, CHAR_SIZE + EXTRA_SIZE, "./data/%s.dat", ptr_lvl->runs[idx].files[k]);
+                    fptr = fopen(file_bfr, "rb");
+
+                    jdx = 0;
+                    while (fread(help, sizeof(int), 2, fptr) == 2)
+                    {
+                        data_bfr[jdx].key = help[0];
+                        data_bfr[jdx].value = help[1];
+                        //printf("checking key %d \n", data_bfr[jdx].key );
+                        if (data_bfr[jdx].key == 1590)
+                        {
+                            printf("ada kok 1590 \n");
+                            printf("600 in level  %d\n", i);
+                        }
+                        //printf("masuk ke cari di level \n");
+                        if (data_bfr[jdx].key >= startKey && data_bfr[jdx].key <= endKey && checkIfExist(rangeRes, data_bfr[jdx].key, range) == 0)
+                        {
+                            if (data_bfr[jdx].value != GRAVEYARD)
+                            {
+                                (*value) = data_bfr[jdx].value;
+
+                                rangeRes[curInd].key = data_bfr[jdx].key;
+                                rangeRes[curInd].value = data_bfr[jdx].value;
+                                curInd = curInd + 1;
+
+                                //fclose(fptr);
+                                //free(data_bfr);
+                                //return 0;
+                            }
+                            if (curInd == range)
+                            {
+                                fclose(fptr);
+                                free(data_bfr);
+                                return 0;
+                            }
+                            // else
+                            // {
+                            //     // -5 denotes deleted value
+                            //     //fclose(fptr);
+                            //     //free(data_bfr);
+                            //     //return -5;
+                            // }
+                        }
+                        jdx++;
+                    }
+                    fclose(fptr);
+                    free(data_bfr);
+
+                    // used to have a binary search for values
+                    // but since we're reading from the files
+                    // we can check it on the go
+                }
             }
             ptr_lvl = (*lsmt).levels[++i];
         }
@@ -525,7 +567,7 @@ int checkIfExist(data_chunk rangeRes[], keyType key, int size)
         {
             return 1;
         }
-        i++;
+        i = i + 1;
     }
 
     return 0;
