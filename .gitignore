@@ -2,3 +2,10 @@ src/env
 src/generated-data
 src/data
 
+# make and build files
+*.lst
+*.o
+*.eep
+*.lss
+*.map
+*.sym
