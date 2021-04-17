@@ -12,7 +12,7 @@ int main()
   lsmtree *lsmt = NULL;
   //char c;
   valType int1, int2, *value;
-  int bfr_size = 256, depth = 500, fanout = 2, count, found;
+  int bfr_size = 1024, depth = 2000, fanout = 2, count, found;
   double error = 0.01;
   //char file_bfr[CHAR_SIZE + EXTRA_SIZE];
   //FILE *fptr;
@@ -57,20 +57,96 @@ int main()
 
   fclose(file);
 
-  //----- my test -----
+  //----- my test with inserting  -----
+
+  // count = 0;
+  // value = (valType *)malloc(sizeof(valType));
+  // int range= 10000;
+  // int epocs = 1000;
+  // float timeKeep[epocs];
+  // float insertingTime[epocs];
+  // float totalTime[epocs];
+
+  // data_chunk* arrayRes = (data_chunk *)malloc((range+1) * sizeof(data_chunk));
+  // for (int j = 0; j < epocs; j++)
+  // {
+  //   count = j;
+  //   int1 = getRandoms(0, 90000);
+  //   int2 = int1 + range;
+    
+  //   for (int i = 0; i < range; i++)
+  //   {
+  //     arrayRes[i].key = 0;
+  //     arrayRes[i].value = 0;
+  //   }
+
+  //   printf("get range \n");
+  //   clock_t start = clock();
+  //   found = getRange(lsmt, int1, int2, value, arrayRes, range);
+  //   clock_t end = clock();
+  //   float seconds = (float)(end - start) / CLOCKS_PER_SEC;
+  //   timeKeep[j] = seconds;
+
+
+  //   printf("merge sort \n");
+  //   clock_t start1 = clock();
+  //   found = merge_sort( arrayRes, 0, range);
+  //   printf("put \n");
+  //   for (int kk =range-1 ; kk >= 0; kk--)
+  //   {
+  //     //printf("iteration %d \n", kk);
+  //     if (arrayRes[kk].key != 0)
+  //     {
+  //       put(lsmt, arrayRes[kk].key, arrayRes[kk].value);
+  //     }
+  //   }
+  //   clock_t end1 = clock();
+  //   float seconds1 = (float)(end1 - start1) / CLOCKS_PER_SEC;
+  //   insertingTime[j] = seconds1;
+
+  //   float total = seconds+ seconds1;
+  //   totalTime[j] = total;
+    
+
+    
+
+  //   // for (int i = 0; i < range; i++)
+  //   // {
+  //   //   printf("data before sort  index %d, value %d\n", arrayRes[i].key, arrayRes[i].value);
+  //   // }
+
+ 
+  //   printf("----------------------------------------------------------------\n");
+  //   printf(" search from %d, to %d\n", int1, int2);
+  //   printf("operation %d took %.04f seconds.\n", count, seconds);
+    
+  // }
+
+  // FILE *filePtr;
+  // filePtr = fopen("result/test-withUpdate-1000epocs-10000range.data","w");
+  //  for (int i = 0; i < epocs; i++) {
+  //     fprintf(filePtr, "%.04f\t%.04f\t%.04f\n", timeKeep[i], insertingTime[i], totalTime[i]);
+  //  };
+
+
+  //---- end with inserting -----
+
+  //----- my test without inserting  -----
 
   count = 0;
   value = (valType *)malloc(sizeof(valType));
-  int range= 1000;
-  int epocs = 100;
+  int range= 10000;
+  int epocs = 1000;
   float timeKeep[epocs];
-
+  //float insertingTime[epocs];
+  //float totalTime[epocs];
 
   data_chunk* arrayRes = (data_chunk *)malloc((range+1) * sizeof(data_chunk));
   for (int j = 0; j < epocs; j++)
   {
     count = j;
     int1 = getRandoms(0, 90000);
+    printf("random number %d\n", int1);
     int2 = int1 + range;
     
     for (int i = 0; i < range; i++)
@@ -81,43 +157,54 @@ int main()
 
     printf("get range \n");
     clock_t start = clock();
-    found = getRange(lsmt, int1, int2, value, arrayRes, range);
-    // found = merge_sort( arrayRes, 0, range);
-    // for (int kk =0 ; kk < range; kk++)
-    // {
-    //   if (arrayRes[kk].key != 0)
-    //   {
-    //   put(lsmt, arrayRes[kk].key, arrayRes[kk].value);
-    //   }
-    // }
-
+    //found = 0;
+    found =getRange(lsmt, int1, int2, value, arrayRes, range);
+    printf("done \n");
     clock_t end = clock();
     float seconds = (float)(end - start) / CLOCKS_PER_SEC;
-
     timeKeep[j] = seconds;
 
+
+    // printf("merge sort \n");
+    // clock_t start1 = clock();
+    // found = merge_sort( arrayRes, 0, range);
+    // printf("put \n");
+    // for (int kk =range-1 ; kk >= 0; kk--)
+    // {
+    //   //printf("iteration %d \n", kk);
+    //   if (arrayRes[kk].key != 0)
+    //   {
+    //     put(lsmt, arrayRes[kk].key, arrayRes[kk].value);
+    //   }
+    // }
+    // clock_t end1 = clock();
+    // float seconds1 = (float)(end1 - start1) / CLOCKS_PER_SEC;
+    // insertingTime[j] = seconds1;
+
+    // float total = seconds+ seconds1;
+    // totalTime[j] = total;
+    
+
+    
+    // if ( j == epocs -1){
     // for (int i = 0; i < range; i++)
     // {
     //   printf("data before sort  index %d, value %d\n", arrayRes[i].key, arrayRes[i].value);
     // }
+    // }
 
- 
-    printf("----------------------------------------------------------------\n");
-    printf(" search from %d, to %d\n", int1, int2);
     printf("operation %d took %.04f seconds.\n", count, seconds);
+    printf("----------------------------------------------------------------\n");
+    //printf(" search from %d, to %d\n", int1, int2);
+  
     
   }
 
   FILE *filePtr;
-  filePtr = fopen("result/test-withOutUpdate-100.data","w");
+  filePtr = fopen("result/test-100Kdata-1000epocs-10000range.data","w");
    for (int i = 0; i < epocs; i++) {
       fprintf(filePtr, "%.04f\n", timeKeep[i]);
    };
-  
-
-  //endKey = 1;
-
-  //---- end my test-----
 
   // while (scanf("%c", &c) == 1) {
   //     if (c == 'p') {

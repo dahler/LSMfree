@@ -84,19 +84,22 @@ int get_buffer(buffer* bfr, keyType key, valType *value) {
 
 int get_bufferRange(buffer* bfr, keyType startKey, keyType endKey, valType *value, data_chunk rangeRes[], int range) {
     int idx;
+    int curInd = 0;
     // Check if the hashtable is allocated
     if (bfr == NULL) {
-        return -1;
+        //return -1;
+        return curInd;
     }
 
     //endKey = 1;
 
     if ((*bfr).bfr_array == NULL) {
         // -3 to differentiate from the -1 of core structure missalocation
-        return -3;
+        //return -3;
+        return curInd;
     } else {
         // check in reverse order to make sure we get the most recent one
-        int curInd = 0;
+        
         for (int i = 0; i < range; i++ )
         {
             if (rangeRes[i].key == 0)
@@ -121,13 +124,13 @@ int get_bufferRange(buffer* bfr, keyType startKey, keyType endKey, valType *valu
                 } 
                 if (curInd == range)
                 {
-                    return 7;
+                    return -1;
                 }
             }
         }
-        return 10;
+        return curInd;
     }
-    return -1;
+    return curInd;
 }
 
 // This method frees all memory occupied by the hash table.

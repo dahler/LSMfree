@@ -41,7 +41,7 @@ typedef struct run {
 typedef struct level {
     int curr_runs;
     int curr_size;
-
+    int sorted;
     bloom *blm_f;
     run *runs;
 } level;

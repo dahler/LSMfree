@@ -232,6 +232,7 @@ int flush(lsmtree *lsmt, int index)
             (*lsmt).levels[index]->curr_size += (*lsmt).bfr->current_index;
             (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].run_size = (*lsmt).bfr->current_index;
             (*lsmt).levels[index]->curr_runs++;
+            (*lsmt).levels[index]->sorted = 1;
 
             // soft reset the buffer
             (*lsmt).bfr->current_index = 0;
@@ -281,7 +282,7 @@ int flush(lsmtree *lsmt, int index)
             }
             int out;
             // we now need to sort the data_bfr and proceed with everything else
-            out = merge_sort(data_bfr, 0, (*lsmt).levels[index - 1]->curr_size - 1); 
+            out = merge_sort(data_bfr, 0, (*lsmt).levels[index - 1]->curr_size - 1);
 
             if (out)
                 (*lsmt).levels[index - 1]->curr_size -= out;
@@ -328,7 +329,8 @@ int flush(lsmtree *lsmt, int index)
                 else
                 {
                     (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_p[jdx] = data_bfr[(*lsmt).levels[index - 1]->curr_size - jdx * pagesize / sizeof(data_chunk) - 1].key;
-                    (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_end[jdx] = data_bfr[(*lsmt).levels[index - 1]->curr_size - jdx * pagesize / sizeof(data_chunk) - 1].key;;
+                    (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_end[jdx] = data_bfr[(*lsmt).levels[index - 1]->curr_size - jdx * pagesize / sizeof(data_chunk) - 1].key;
+                    ;
                 }
 
                 // write data to files
@@ -361,6 +363,7 @@ int flush(lsmtree *lsmt, int index)
             (*lsmt).levels[index]->curr_size += (*lsmt).levels[index - 1]->curr_size;
             (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].run_size = (*lsmt).levels[index - 1]->curr_size;
             (*lsmt).levels[index]->curr_runs++;
+            (*lsmt).levels[index]->sorted = 0;
 
             // soft reset the level
             for (idx = 0; idx < (*lsmt).levels[index - 1]->curr_runs; idx++)
@@ -389,14 +392,14 @@ int flush(lsmtree *lsmt, int index)
     }
 }
 
-int getRangeWithCompaction(lsmtree *lsmt, keyType startKey, keyType endKey, valType *value, data_chunk rangeRes[], int range)
+int getRange(lsmtree *lsmt, keyType startKey, keyType endKey, valType *value, data_chunk rangeRes[], int range)
 {
     int found, i = 0, idx, jdx, current_size, bin_index, run_size, num_files, help[2];
     char file_bfr[CHAR_SIZE + EXTRA_SIZE];
     FILE *fptr;
     level *ptr_lvl;
     size_t pagesize = getpagesize();
-    
+
     if (lsmt == NULL)
     {
         return -1;
@@ -404,32 +407,29 @@ int getRangeWithCompaction(lsmtree *lsmt, keyType startKey, keyType endKey, valT
 
     // check the buffer first
     found = get_bufferRange((*lsmt).bfr, startKey, endKey, value, rangeRes, range);
-    
-    if (found == 0)
+     int curInd = found;
+
+    if (found == -1)
     {
+        // we get all data from buffer
         return 0;
-    }
-    else if (found == 7)
-    {
-        // propagate -5 (deleted file)
-        return 7;
     }
     else
     {
         // start checking the levels
         ptr_lvl = (*lsmt).levels[i];
 
-        while (ptr_lvl != NULL)
-        {          
-            int curInd = 0;
-            for (int iii = 0; iii < range; iii++)
-            {
-                if (rangeRes[iii].key == 0)
-                {
-                    curInd = iii;
-                    iii = range;
-                }
-            }
+        while (ptr_lvl != NULL &&  curInd <range)
+        {
+           
+            // for (int iii = 0; iii < range; iii++)
+            // {
+            //     if (rangeRes[iii].key == 0)
+            //     {
+            //         curInd = iii;
+            //         iii = range;
+            //     }
+            // }
 
             //printf("current index  %d\n", curInd);
 
@@ -441,17 +441,16 @@ int getRangeWithCompaction(lsmtree *lsmt, keyType startKey, keyType endKey, valT
                 run_size = ptr_lvl->runs[idx].run_size;
                 num_files = (run_size * sizeof(data_chunk) + pagesize - 1) / pagesize;
                 bin_index = 0;
-                
+
                 for (int k = 0; k < num_files; k++)
                 {
                     //printf("file number %d \n", k);
 
-                    if (endKey < ptr_lvl->runs[idx].fence_start[k]   || startKey >  ptr_lvl->runs[idx].fence_end[k])
+                    if (endKey < ptr_lvl->runs[idx].fence_start[k] || startKey > ptr_lvl->runs[idx].fence_end[k])
                     {
                         continue;
                     }
                     //printf("fence yang dipakai %d %d \n", ptr_lvl->runs[idx].fence_start[k], ptr_lvl->runs[idx].fence_end[k]);
-                    
 
                     //data_chunk *data_bfr;
                     //data_bfr = (data_chunk *)malloc(current_size * sizeof(data_chunk));
@@ -462,7 +461,7 @@ int getRangeWithCompaction(lsmtree *lsmt, keyType startKey, keyType endKey, valT
                     snprintf(file_bfr, CHAR_SIZE + EXTRA_SIZE, "./data/%s.dat", ptr_lvl->runs[idx].files[k]);
                     fptr = fopen(file_bfr, "rb");
                     //printf("file opened \n");
-                    
+
                     int dataKey;
                     int dataValue;
 
@@ -478,7 +477,7 @@ int getRangeWithCompaction(lsmtree *lsmt, keyType startKey, keyType endKey, valT
                         dataValue = help[1];
 
                         //printf("checking key %d \n", data_bfr[jdx].key );
-                        
+
                         //printf("masuk ke cari di level \n");
                         //printf("fkey used %d \n", dataKey);
                         if (dataKey >= startKey && dataKey <= endKey && checkIfExist(rangeRes, dataKey, range) == 0)
@@ -504,11 +503,10 @@ int getRangeWithCompaction(lsmtree *lsmt, keyType startKey, keyType endKey, valT
                                 //free(data_bfr);
                                 return 0;
                             }
-                            
                         }
                         //jdx++;
                     }
- 
+
                     //printf("close file \n");
                     fclose(fptr);
                     //printf("file closed \n");
@@ -527,14 +525,15 @@ int getRangeWithCompaction(lsmtree *lsmt, keyType startKey, keyType endKey, valT
     return -1;
 }
 
-int getRange(lsmtree *lsmt, keyType startKey, keyType endKey, valType *value, data_chunk rangeRes[], int range)
+int getRangeWithCompaction(lsmtree *lsmt, keyType startKey, keyType endKey, valType *value, data_chunk rangeRes[], int range)
 {
     int found, i = 0, idx, jdx, current_size, bin_index, run_size, num_files, help[2];
+    //int found, i = 0, idx, jdx, current_size, bin_index, run_size, num_files;
     char file_bfr[CHAR_SIZE + EXTRA_SIZE];
     FILE *fptr;
     level *ptr_lvl;
     size_t pagesize = getpagesize();
-    
+
     if (lsmt == NULL)
     {
         return -1;
@@ -542,133 +541,320 @@ int getRange(lsmtree *lsmt, keyType startKey, keyType endKey, valType *value, da
 
     // check the buffer first
     found = get_bufferRange((*lsmt).bfr, startKey, endKey, value, rangeRes, range);
-    
-    if (found == 0)
+    int curInd = found;
+
+    //printf("search from %d, to %d\n", startKey, endKey);
+
+    if (found == -1)
     {
-        return 0;
-    }
-    else if (found == 7)
-    {
-        // propagate -5 (deleted file)
-        return 7;
+        return 0; // get all from buffer
     }
     else
-    {
+    { 
         // start checking the levels
         ptr_lvl = (*lsmt).levels[i];
 
-        while (ptr_lvl != NULL)
+        while (ptr_lvl != NULL && curInd < range)
         {
             //printf("checking level  %d\n", i);
-            
-            int curInd = 0;
-            for (int iii = 0; iii < range; iii++)
-            {
-                if (rangeRes[iii].key == 0)
-                {
-                    curInd = iii;
-                    iii = range;
-                }
-            }
 
-            //printf("current index  %d\n", curInd);
+            //printf("curInd  %d\n", curInd);
+            int numofRuns = 0;
+            numofRuns = ptr_lvl->curr_runs;
 
             current_size = pagesize / sizeof(data_chunk);
+            int tobeMerged = 0;
+            jdx = 0;
+            int run_size0 = 0;
+            run_size0 = ptr_lvl->runs[0].run_size;
+
+            //printf("curr_runs %d run size %d\n", ptr_lvl->curr_runs, run_size0);
+            //int each_run_size = 0;
             for (idx = ptr_lvl->curr_runs - 1; idx >= 0; idx--)
             {
+                //printf("masuk run, run size %d\n", ptr_lvl->runs[idx].run_size);
                 // we need to define the number of files
                 //(int)((run_size * sizeof(data_chunk) + pagesize - 1) / pagesize)
+
                 run_size = ptr_lvl->runs[idx].run_size;
                 num_files = (run_size * sizeof(data_chunk) + pagesize - 1) / pagesize;
                 bin_index = 0;
-                //bin_index = binary_fences(ptr_lvl->runs[idx].fence_p, 0, num_files - 1, endKey);
-                //printf("bin index %d \n", bin_index);
+                
 
-                //int sizeFence = sizeof ptr_lvl->runs[idx].fence_p / sizeof ptr_lvl->runs[idx].fence_p[0];
-                //printf("number of files  %d\n", num_files);
+                //printf("num-files %d\n", num_files);
+
                 for (int k = 0; k < num_files; k++)
                 {
-                    //printf("file number %d \n", k);
 
-                    if (endKey < ptr_lvl->runs[idx].fence_start[k]   || startKey >  ptr_lvl->runs[idx].fence_end[k])
+                    //printf("at serach inside each page %d -- %d\n", ptr_lvl->runs[idx].fence_start[k], ptr_lvl->runs[idx].fence_end[k] );
+                    //printf("fence start %d end %d\n", ptr_lvl->runs[idx].fence_start[k] , ptr_lvl->runs[idx].fence_end[k]);
+
+                    if (endKey < ptr_lvl->runs[idx].fence_start[k] || startKey > ptr_lvl->runs[idx].fence_end[k])
                     {
                         continue;
                     }
-                    //printf("fence yang dipakai %d %d \n", ptr_lvl->runs[idx].fence_start[k], ptr_lvl->runs[idx].fence_end[k]);
-                    
-
-                    //data_chunk *data_bfr;
-                    //data_bfr = (data_chunk *)malloc(current_size * sizeof(data_chunk));
-                    // bring the particular file in memory and binary search
-                    // to find the element we're looking for
-                    //snprintf(file_bfr, CHAR_SIZE + EXTRA_SIZE, "./data/%s.dat", ptr_lvl->runs[idx].files[bin_index]);
-                    //printf("Allocating data \n");
-                    snprintf(file_bfr, CHAR_SIZE + EXTRA_SIZE, "./data/%s.dat", ptr_lvl->runs[idx].files[k]);
-                    fptr = fopen(file_bfr, "rb");
-                    //printf("file opened \n");
-                    
-                    int dataKey;
-                    int dataValue;
-
-                    jdx = 0;
-                    while (fread(help, sizeof(int), 2, fptr) == 2)
+                    else
                     {
-                        //data_bfr[jdx].key = help[0];
-                        //data_bfr[jdx].value = help[1];
-                        //printf("read file\n");
-                        //printf("help[0] %d\n", help[0]);
-                        //printf("help[1] %d\n", help[1]);
-                        dataKey = help[0];
-                        dataValue = help[1];
-
-                        //printf("checking key %d \n", data_bfr[jdx].key );
-                        
-                        //printf("masuk ke cari di level \n");
-                        //printf("fkey used %d \n", dataKey);
-                        if (dataKey >= startKey && dataKey <= endKey && checkIfExist(rangeRes, dataKey, range) == 0)
+                        // this level need to be merged. quit all loop
+                        tobeMerged = 1 + tobeMerged;
+                        k = num_files;
+                        if (tobeMerged > 1)
                         {
-                            if (dataValue != GRAVEYARD)
-                            {
-                                (*value) = dataValue;
-
-                                rangeRes[curInd].key = dataKey;
-                                rangeRes[curInd].value = dataValue;
-                                curInd = curInd + 1;
-
-                                //fclose(fptr);
-                                //free(data_bfr);
-                                //return 0;
-                            }
-                            if (curInd == range)
-                            {
-                                //printf("range == curInd \n");
-                                //printf("close file \n");
-                                fclose(fptr);
-                                //printf("file closed \n");
-                                //free(data_bfr);
-                                return 0;
-                            }
-                            
+                            idx = -1;
                         }
-                        //jdx++;
                     }
- 
-                    //printf("close file \n");
-                    fclose(fptr);
-                    //printf("file closed \n");
-                    //free(data_bfr);
-
-                    // used to have a binary search for values
-                    // but since we're reading from the files
-                    // we can check it on the go
                 }
             }
+
+            //printf("go inside merge \n");
+            //int help[2];
+            data_chunk *data_bfr;
+            data_bfr = (data_chunk *)malloc(ptr_lvl->curr_size * sizeof(data_chunk));
+
+            jdx = 0;
+            for (idx = 0; idx < numofRuns; idx++)
+            {
+                // we have multiple files, we need to open all of them
+                // we need the number of files of the previous level
+                run_size = ptr_lvl->runs[idx].run_size;
+                //printf("inside merge run number %d size  %d\n", numofRuns, run_size);
+
+                for (int kdx = 0; kdx < (int)((run_size * sizeof(data_chunk) + pagesize - 1) / pagesize); kdx++)
+                {
+                    //printf("inside merge file %s\n", ptr_lvl->runs[idx].files[kdx]);
+                    snprintf(file_bfr, CHAR_SIZE + EXTRA_SIZE, "./data/%s.dat", ptr_lvl->runs[idx].files[kdx]);
+                    fptr = fopen(file_bfr, "rb");
+
+                    while (fread(help, sizeof(int), 2, fptr) == 2)
+                    {
+                        data_bfr[jdx].key = help[0];
+                        data_bfr[jdx].value = help[1];
+                        jdx++;
+                    }
+                    fclose(fptr);
+
+                    if (tobeMerged > 1 && i > 0 && ptr_lvl->sorted == 0)
+                    {
+                        remove(file_bfr);
+                    }
+
+                    // read all of the file, delete it
+                }
+            }
+
+
+            
+            
+
+            int out;
+            int newSize = 0;
+            // we now need to sort the data_bfr and proceed with everything else
+            out = merge_sort(data_bfr, 0, ptr_lvl->curr_size - 1);
+
+            if (out)
+            {
+                ptr_lvl->curr_size -= out;
+            }
+
+            
+
+            for (int dd = 0; dd < ptr_lvl->curr_size; dd++)
+            {
+
+                if (data_bfr[dd].key >= startKey && data_bfr[dd].key <= endKey && checkIfExist(rangeRes, data_bfr[dd].key, range) == 0)
+                {
+                    //printf("masuk sini check %d\n", data_bfr[dd].key );
+                    if (data_bfr[dd].value != GRAVEYARD)
+                    {
+                        (*value) = data_bfr[dd].value;
+
+                        rangeRes[curInd].key = data_bfr[dd].key;
+                        rangeRes[curInd].value = data_bfr[dd].key;
+                        curInd = curInd + 1;
+
+                        //fclose(fptr);
+                        //free(data_bfr);
+                        //return 0;
+                    }
+                    if (curInd == range)
+                    {
+                        //printf("range == curInd \n");
+                        //printf("close file \n");
+                        //fclose(fptr);
+                        //printf("file closed \n");
+                        //free(data_bfr);
+                        break;
+                    }
+                }
+            }
+
+            if (tobeMerged <= 1 || i == 0 || ptr_lvl->sorted == 1)
+            {
+                //printf("level size %d\n", ptr_lvl->curr_size );
+                ptr_lvl = (*lsmt).levels[++i];
+                continue;
+            }
+
+            newSize = ptr_lvl->curr_size;
+
+            // clear current level
+            //ptr_lvl->curr_size = 0;
+            //ptr_lvl->runs[ptr_lvl->curr_runs].run_size = (*lsmt).bfr->current_index;
+
+            run_size = run_size0;
+
+            //printf("level %d \n", i);
+            for (idx = 0; idx < numofRuns; idx++)
+            {
+                ptr_lvl->curr_runs = idx + 1;
+                //run_size = (*lsmt).bfr->current_index;
+                ptr_lvl->runs[idx].fence_p = malloc(sizeof(int) * (run_size * sizeof(data_chunk) + pagesize - 1) / pagesize);
+                ptr_lvl->runs[idx].fence_start = malloc(sizeof(int) * (run_size * sizeof(data_chunk) + pagesize - 1) / pagesize);
+                ptr_lvl->runs[idx].fence_end = malloc(sizeof(int) * (run_size * sizeof(data_chunk) + pagesize - 1) / pagesize);
+
+                if (ptr_lvl->runs[idx].fence_p == NULL)
+                {
+                    return -1;
+                }
+                ptr_lvl->runs[idx].files = (char **)malloc(sizeof(char *) * (run_size * sizeof(data_chunk) + pagesize - 1) / pagesize);
+                if (ptr_lvl->runs[idx].files == NULL)
+                {
+                    return -1;
+                }
+                ptr_lvl->runs[idx].run_size = 0;
+                // for each file create the file name array
+                for (jdx = 0; jdx < (int)((run_size * sizeof(data_chunk) + pagesize - 1) / pagesize); jdx++)
+                {
+                    ptr_lvl->runs[idx].files[jdx] = (char *)malloc(sizeof(char) * CHAR_SIZE);
+                    if (ptr_lvl->runs[idx].files[jdx] == NULL)
+                    {
+                        return -1;
+                    }
+                }
+
+                // divide the files to pages
+                //int start =0;
+
+                //for (jdx = 0; jdx < (int)((run_size * sizeof(data_chunk) + pagesize - 1) / pagesize); jdx++)
+                int numberOfPage = (int)((run_size * sizeof(data_chunk) + pagesize - 1) / pagesize);
+
+                // printf("array size %d \n", newSize);
+                // printf("number of runs %d \n", numofRuns);
+                // printf("number of end %d \n", end);
+                //printf("merging level %d run %d run size %d, numberOfPage %d\n", i, idx, run_size,  numberOfPage);
+                int start = idx * run_size;
+                for (int jdx = 0; jdx < numberOfPage; jdx++)
+                {
+
+                    //printf("run %d and file %d \n", idx, jdx);
+
+                    //printf("run %d \n", ptr_lvl->curr_runs);
+                    snprintf(ptr_lvl->runs[idx].files[jdx], CHAR_SIZE, "l%dr%df%d", i, idx, jdx);
+
+                    // find max for fence pointer
+                    // it makes a difference if the buffer has more elements than
+                    // can fit in a page size or not
+
+                    //int realDataSzie = (int)(jdx * run_size0);
+
+                    //printf("jdx %d reals size %d  newSzie %d run size %d\n", jdx, realDataSzie, newSize, run_size0);
+
+                    // if (realDataSzie < newSize)
+                    // {
+                    //     continue;
+                    // }
+
+                    int lengthRun = 0;
+                    lengthRun = newSize / numofRuns;
+                    //step = pagesize / sizeof(data_chunk)
+                    int arrayIndex = (int)(start + (jdx * run_size / numberOfPage));
+                    //
+                    int endArrayIndex = arrayIndex + (run_size / numberOfPage) - 1;
+                    // printf(" array index file %d  end %d\n",  arrayIndex, endArrayIndex);
+                    // printf("run %d and file %d \n", idx, jdx);
+
+                    if (&data_bfr[arrayIndex] == NULL)
+                    {
+                        continue;
+                    }
+
+                    ptr_lvl->runs[idx].fence_start[jdx] = data_bfr[arrayIndex].key;
+
+                    if (newSize >= endArrayIndex + 1)
+                    {
+                        ptr_lvl->runs[idx].fence_p[jdx] = data_bfr[endArrayIndex].key;
+                        ptr_lvl->runs[idx].fence_end[jdx] = data_bfr[endArrayIndex].key;
+                    }
+                    else
+                    {
+                        ptr_lvl->runs[idx].fence_p[jdx] = data_bfr[newSize - 1].key;
+                        ptr_lvl->runs[idx].fence_end[jdx] = data_bfr[newSize - 1].key;
+                    }
+                    //printf("fence array %d -- %d\n", arrayIndex,  endArrayIndex);
+                    //printf("fence  value %d -- %d\n", ptr_lvl->runs[idx].fence_start[jdx], ptr_lvl->runs[idx].fence_end[jdx] );
+                    //printf("level %d\n", index);
+                    //printf("fence pointer value %d\n", (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_p[jdx]) ;
+                    // write data to files
+                    snprintf(file_bfr, CHAR_SIZE + EXTRA_SIZE, "./data/%s.dat", ptr_lvl->runs[idx].files[jdx]);
+
+                    fptr = fopen(file_bfr, "wb");
+                    //printf("file name %s\n", ptr_lvl->runs[idx].files[jdx]);
+                    // //start = jdx *run_size0 * pagesize / sizeof(data_chunk);
+
+                    if (newSize >= endArrayIndex)
+                    {
+                        for (int arrIdx = arrayIndex; arrIdx < endArrayIndex; arrIdx++)
+                        {
+                            fwrite(&data_bfr[arrIdx].key, sizeof(int), 1, fptr);
+                            fwrite(&data_bfr[arrIdx].value, sizeof(int), 1, fptr);
+                            hash(ptr_lvl->blm_f, data_bfr[arrIdx].key);
+                        }
+                    }
+                    else
+                    {
+                        for (int arrIdx = arrayIndex; arrIdx < newSize; arrIdx++)
+                        {
+                            fwrite(&data_bfr[arrIdx].key, sizeof(int), 1, fptr);
+                            fwrite(&data_bfr[arrIdx].value, sizeof(int), 1, fptr);
+                            hash(ptr_lvl->blm_f, data_bfr[arrIdx].key);
+                            // fwrite(&(*lsmt).bfr->bfr_array[idx].key, sizeof(int), 1, fptr);
+                            // fwrite(&(*lsmt).bfr->bfr_array[idx].value, sizeof(int), 1, fptr);
+                            // hash(ptr_lvl->blm_f, (*lsmt).bfr->bfr_array[idx].key);
+                        }
+                        //printf("\n");
+                    }
+                    fclose(fptr);
+                    ptr_lvl->runs[idx].run_size = run_size0;
+                }
+            }
+
+            //int size = sizeof((*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_p);
+            // printf("fence size %d\n", size);
+            // for (int j = 0; j < size; j++)
+            // {
+            //      printf("fence pointer value %d\n", (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].fence_p[j]);
+            // }
+
+            // update the current size and runs
+
+            //ptr_lvl->runs[ptr_lvl->curr_runs].run_size = (*lsmt).bfr->current_index;
+
+            // soft reset the buffer
+            //(*lsmt).bfr->current_index = 0;
+
+            //}
+
+            //printf("error here \n");
+            ptr_lvl->curr_size = newSize;
+            ptr_lvl->sorted = 1;
+
+            //printf("no error here \n");
+
             ptr_lvl = (*lsmt).levels[++i];
+            printf("===== done one level ==== ");
         }
     }
-
-    // we didn't find it
-    return -1;
+    return 1;
 }
 
 int checkIfExist(data_chunk rangeRes[], keyType key, int size)
@@ -763,7 +949,8 @@ int get(lsmtree *lsmt, keyType key, valType *value)
                 jdx = 0;
                 while (fread(help, sizeof(int), 2, fptr) == 2)
                 {
-                    data_bfr[jdx].key = help[0];;
+                    data_bfr[jdx].key = help[0];
+                    ;
                     data_bfr[jdx].value = help[1];
                     //key = help[0];
                     //val = help[1];
