@@ -33,7 +33,7 @@ int main()
 
   //FILE *dtptr;
   //char fileName[] = "generated-data/100K.data";
-  char fileName[] = "generated-data/100K.random.data";
+  char fileName[] = "generated-data/1M.random.data";
   //char const* const fileName = argv[1]; /* should check that argc > 1 */
   FILE *file = fopen(fileName, "r"); /* should check the result */
   char line[256];
@@ -42,38 +42,106 @@ int main()
   int index;
   int valu;
 
+
   while (fgets(line, sizeof(line), file))
   {
-  
+
     ind = strtok(line, " ");
     val = strtok(NULL, " ");
 
     index = atoi(ind);
     valu = atoi(val);
     put(lsmt, index, valu);
-
   }
-
 
   fclose(file);
 
-  //----- my test with inserting  -----
+  //----- my test with compaction  -----
 
   // count = 0;
   // value = (valType *)malloc(sizeof(valType));
-  // int range= 10000;
+  // int range = 100000;
   // int epocs = 1000;
-  // float timeKeep[epocs];
-  // float insertingTime[epocs];
+  // float timeKeep[2];
+
+  // float searchTimeArray[epocs];
+  // float compactionTimeArray[epocs];
   // float totalTime[epocs];
 
-  // data_chunk* arrayRes = (data_chunk *)malloc((range+1) * sizeof(data_chunk));
+  
+
+  // data_chunk *arrayRes = (data_chunk *)malloc((range + 1) * sizeof(data_chunk));
   // for (int j = 0; j < epocs; j++)
   // {
   //   count = j;
   //   int1 = getRandoms(0, 90000);
   //   int2 = int1 + range;
+
+  //   for (int i = 0; i < range; i++)
+  //   {
+  //     arrayRes[i].key = 0;
+  //     arrayRes[i].value = 0;
+  //   }
+
+  //   printf("get range \n");
+
+  //   //searchTime = 0;
+  //   //compactionTime = 0;
+
+  //   timeKeep[0] = 0.0;
+  //   timeKeep[1] = 0.0;
     
+  //   found = getRangeWithCompaction(lsmt, int1, int2, value, arrayRes, range, timeKeep);
+    
+    
+
+  //   searchTimeArray[j] = timeKeep[0];
+  //   compactionTimeArray[j] = timeKeep[1];
+  //   totalTime[j] = timeKeep[0]+timeKeep[1];
+
+    
+  //   found = merge_sort(arrayRes, 0, range);
+  //   //printf("put \n");
+    
+
+  //   // for (int i = 0; i < range; i++)
+  //   // {
+  //   //   printf("data before sort  index %d, value %d\n", arrayRes[i].key, arrayRes[i].value);
+  //   // }
+
+  //   printf("----------------------------------------------------------------\n");
+  //   printf(" search from %d, to %d\n", int1, int2);
+  //   printf("operation %d took search  %.08f -- compaction %.08f seconds.\n", count, timeKeep[0], timeKeep[1]);
+  // }
+
+  // FILE *filePtr;
+  // filePtr = fopen("result/test-withCompaction-1000epocs-100000range-1M.random.data","w");
+  //  for (int i = 0; i < epocs; i++) {
+  //     fprintf(filePtr, "%.04f\t%.04f\t%.04f\n", searchTimeArray[i], compactionTimeArray[i], totalTime[i]);
+  //  };
+
+  //---- end with compaction -----
+
+  //----- my test with inserting  -----
+
+  // count = 0;
+  // value = (valType *)malloc(sizeof(valType));
+  // int range = 100;
+  // int epocs = 2;
+
+  // float timeKeep[epocs];
+  // float insertingTime[epocs];
+  // float totalTime[epocs];
+
+  // searchTime = 0;
+
+  // data_chunk *arrayRes = (data_chunk *)malloc((range + 1) * sizeof(data_chunk));
+  // for (int j = 0; j < epocs; j++)
+  // {
+  //   count = j;
+  //   int1 = getRandoms(0, 90000);
+  //   int2 = int1 + range;
+
   //   for (int i = 0; i < range; i++)
   //   {
   //     arrayRes[i].key = 0;
@@ -87,12 +155,11 @@ int main()
   //   float seconds = (float)(end - start) / CLOCKS_PER_SEC;
   //   timeKeep[j] = seconds;
 
-
   //   printf("merge sort \n");
   //   clock_t start1 = clock();
-  //   found = merge_sort( arrayRes, 0, range);
+  //   found = merge_sort(arrayRes, 0, range);
   //   printf("put \n");
-  //   for (int kk =range-1 ; kk >= 0; kk--)
+  //   for (int kk = range - 1; kk >= 0; kk--)
   //   {
   //     //printf("iteration %d \n", kk);
   //     if (arrayRes[kk].key != 0)
@@ -104,22 +171,17 @@ int main()
   //   float seconds1 = (float)(end1 - start1) / CLOCKS_PER_SEC;
   //   insertingTime[j] = seconds1;
 
-  //   float total = seconds+ seconds1;
+  //   float total = seconds + seconds1;
   //   totalTime[j] = total;
-    
 
-    
+  //   for (int i = 0; i < range; i++)
+  //   {
+  //     printf("data before sort  index %d, value %d\n", arrayRes[i].key, arrayRes[i].value);
+  //   }
 
-  //   // for (int i = 0; i < range; i++)
-  //   // {
-  //   //   printf("data before sort  index %d, value %d\n", arrayRes[i].key, arrayRes[i].value);
-  //   // }
-
- 
   //   printf("----------------------------------------------------------------\n");
   //   printf(" search from %d, to %d\n", int1, int2);
   //   printf("operation %d took %.04f seconds.\n", count, seconds);
-    
   // }
 
   // FILE *filePtr;
@@ -128,14 +190,14 @@ int main()
   //     fprintf(filePtr, "%.04f\t%.04f\t%.04f\n", timeKeep[i], insertingTime[i], totalTime[i]);
   //  };
 
-
   //---- end with inserting -----
 
   //----- my test without inserting  -----
 
   count = 0;
   value = (valType *)malloc(sizeof(valType));
-  int range= 10000;
+
+  int range= 1000;
   int epocs = 1000;
   float timeKeep[epocs];
   //float insertingTime[epocs];
@@ -148,7 +210,7 @@ int main()
     int1 = getRandoms(0, 90000);
     printf("random number %d\n", int1);
     int2 = int1 + range;
-    
+
     for (int i = 0; i < range; i++)
     {
       arrayRes[i].key = 0;
@@ -163,7 +225,6 @@ int main()
     clock_t end = clock();
     float seconds = (float)(end - start) / CLOCKS_PER_SEC;
     timeKeep[j] = seconds;
-
 
     // printf("merge sort \n");
     // clock_t start1 = clock();
@@ -183,28 +244,26 @@ int main()
 
     // float total = seconds+ seconds1;
     // totalTime[j] = total;
-    
 
-    
     // if ( j == epocs -1){
     // for (int i = 0; i < range; i++)
     // {
     //   printf("data before sort  index %d, value %d\n", arrayRes[i].key, arrayRes[i].value);
     // }
-    // }
 
     printf("operation %d took %.04f seconds.\n", count, seconds);
     printf("----------------------------------------------------------------\n");
     //printf(" search from %d, to %d\n", int1, int2);
-  
-    
   }
 
   FILE *filePtr;
-  filePtr = fopen("result/test-100Kdata-1000epocs-10000range.data","w");
+  filePtr = fopen("result/testRegularSearch-1Mdata-1000epocs-1000range.data","w");
    for (int i = 0; i < epocs; i++) {
       fprintf(filePtr, "%.04f\n", timeKeep[i]);
    };
+
+//----------------- search range without reinserting
+
 
   // while (scanf("%c", &c) == 1) {
   //     if (c == 'p') {
@@ -379,5 +438,3 @@ int main(void) {
   return 0;
 }
 */
-
-

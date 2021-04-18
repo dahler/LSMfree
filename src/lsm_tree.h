@@ -24,6 +24,6 @@ int deallocate(lsmtree* lsmt);
 int print_statistics(lsmtree* lsmt);
 int getRange(lsmtree* lsmt, keyType keyStart, keyType keyEnd, valType *value, data_chunk rangeRes[], int range);
 int checkIfExist(data_chunk rangeRes[], keyType key, int size);
-int getRangeWithCompaction(lsmtree *lsmt, keyType startKey, keyType endKey, valType *value, data_chunk rangeRes[], int range);
+int getRangeWithCompaction(lsmtree *lsmt, keyType startKey, keyType endKey, valType *value, data_chunk rangeRes[], int range, float time[]);
 
 #endif
