@@ -515,9 +515,10 @@ int getRangeWithCompaction(lsmtree *lsmt, keyType startKey, keyType endKey, valT
     { 
         // start checking the levels
         ptr_lvl = (*lsmt).levels[i];
-        printf("search level %d, curInd %d\n", i, curInd);
+        
         while (ptr_lvl != NULL && curInd < range)
         {
+            //printf("search level %d, curInd %d sorted %d\n", i, curInd, ptr_lvl->sorted);
             int numofRuns = 0;
             numofRuns = ptr_lvl->curr_runs;
 
@@ -529,15 +530,32 @@ int getRangeWithCompaction(lsmtree *lsmt, keyType startKey, keyType endKey, valT
 
             start1 = clock();
 
+             // check based on the smallest and the highest point ponter on that level
+            run_size = ptr_lvl->runs[ptr_lvl->curr_runs - 1].run_size;
+            num_files = (run_size * sizeof(data_chunk) + pagesize - 1) / pagesize;
+            if (ptr_lvl->sorted == 1 && (startKey > ptr_lvl->runs[ptr_lvl->curr_runs - 1].fence_end[num_files -1] || endKey < ptr_lvl->runs[0].fence_start[0]))
+            {
+                end1 = clock();
+                seconds1 = (float)(end1 - start1) / CLOCKS_PER_SEC;
+                time[1] = time[1] + seconds1;
+                
+                printf("do not check the level\n");
+                ptr_lvl = (*lsmt).levels[++i];
+
+                continue;
+            }
+
             // Get the data 
             for (idx = ptr_lvl->curr_runs - 1; idx >= 0; idx--)
             {
                 run_size = ptr_lvl->runs[idx].run_size;
                 num_files = (run_size * sizeof(data_chunk) + pagesize - 1) / pagesize;
-                //bin_index = 0;
+                
 
+                // read each file in the run
                 for (int k = 0; k < num_files; k++)
                 {
+                    // check  based on pointer
                     if (endKey < ptr_lvl->runs[idx].fence_start[k] || startKey > ptr_lvl->runs[idx].fence_end[k])
                     {
                         continue;
@@ -583,15 +601,19 @@ int getRangeWithCompaction(lsmtree *lsmt, keyType startKey, keyType endKey, valT
 
             if (tobeMerged <= 1 || i == 0 || ptr_lvl->sorted == 1)
             {
-                printf("No Compaction\n");
+                //printf("No Compaction\n");
                 ptr_lvl = (*lsmt).levels[++i];
                 continue;
             }
             
+            // do compaction in that level (sort merge)
+
             start1 = clock();
+
+            // Adding the data into an array
             data_chunk *data_bfr;
             data_bfr = (data_chunk *)malloc(ptr_lvl->curr_size * sizeof(data_chunk));
-            jdx = 0;
+            jdx = 0;      
             for (idx = ptr_lvl->curr_runs - 1; idx >= 0; idx--)
             {
                 run_size = ptr_lvl->runs[idx].run_size;
@@ -615,36 +637,7 @@ int getRangeWithCompaction(lsmtree *lsmt, keyType startKey, keyType endKey, valT
                 }
             }
 
-            
-
-            
-            // for (idx = 0; idx < numofRuns; idx++)
-            // {
-            //     run_size = ptr_lvl->runs[idx].run_size;
-            //     //printf("inside merge run number %d size  %d\n", numofRuns, run_size);
-
-            //     for (int kdx = 0; kdx < (int)((run_size * sizeof(data_chunk) + pagesize - 1) / pagesize); kdx++)
-            //     {
-            //         //printf("inside merge file %s\n", ptr_lvl->runs[idx].files[kdx]);
-            //         snprintf(file_bfr, CHAR_SIZE + EXTRA_SIZE, "./data/%s.dat", ptr_lvl->runs[idx].files[kdx]);
-            //         fptr = fopen(file_bfr, "rb");
-
-            //         while (fread(help, sizeof(int), 2, fptr) == 2)
-            //         {
-            //             data_bfr[jdx].key = help[0];
-            //             data_bfr[jdx].value = help[1];
-            //             jdx++;
-            //         }
-            //         fclose(fptr);
-
-            //         if (tobeMerged > 1 && i > 0 && ptr_lvl->sorted == 0)
-            //         {
-            //             remove(file_bfr);
-            //         }
-
-            //         // read all of the file, delete it
-            //     }
-            // }
+        
 
             int out;
             int newSize = 0;
@@ -656,34 +649,10 @@ int getRangeWithCompaction(lsmtree *lsmt, keyType startKey, keyType endKey, valT
                 ptr_lvl->curr_size -= out;
             }
 
-            // for (int dd = 0; dd < ptr_lvl->curr_size; dd++)
-            // {
-
-            //     if (data_bfr[dd].key >= startKey && data_bfr[dd].key <= endKey && checkIfExist(rangeRes, data_bfr[dd].key, range) == 0)
-            //     {
-            //         //printf("masuk sini check %d\n", data_bfr[dd].key );
-            //         if (data_bfr[dd].value != GRAVEYARD)
-            //         {
-            //             (*value) = data_bfr[dd].value;
-
-            //             rangeRes[curInd].key = data_bfr[dd].key;
-            //             rangeRes[curInd].value = data_bfr[dd].key;
-            //             curInd = curInd + 1;
-            //         }
-            //         if (curInd == range)
-            //         {
-            //             break;
-            //         }
-            //     }
-            // }
-
-            
-
             newSize = ptr_lvl->curr_size;
-
             run_size = run_size0;
 
-            //printf("level %d \n", i);
+            //replacing the level with the sorted data 
             for (idx = 0; idx < numofRuns; idx++)
             {
                 ptr_lvl->curr_runs = idx + 1;
@@ -796,7 +765,7 @@ int getRangeWithCompaction(lsmtree *lsmt, keyType startKey, keyType endKey, valT
             //printf("no error here \n");
 
             ptr_lvl = (*lsmt).levels[++i];
-            printf("===== done one level ==== \n");
+            //printf("===== done one level ==== \n");
         }
     }
 
