@@ -9,3 +9,5 @@ or if necessary,
 ```c
 make clean
 ```
+
+`main.c` contains the setting of the hyperparameters of the system. Currently they are set so that buffer size is equal to 1024, depth of the tree is 2000, and the fan-out or size ratio of the tree is 2. However, these can be altered through this file. 
