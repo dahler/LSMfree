@@ -232,7 +232,7 @@ int flush(lsmtree *lsmt, int index)
             (*lsmt).levels[index]->curr_size += (*lsmt).bfr->current_index;
             (*lsmt).levels[index]->runs[(*lsmt).levels[index]->curr_runs].run_size = (*lsmt).bfr->current_index;
             (*lsmt).levels[index]->curr_runs++;
-            (*lsmt).levels[index]->sorted = 1;
+            (*lsmt).levels[index]->sorted = 0;
 
             // soft reset the buffer
             (*lsmt).bfr->current_index = 0;
@@ -518,7 +518,7 @@ int getRangeWithCompaction(lsmtree *lsmt, keyType startKey, keyType endKey, valT
         
         while (ptr_lvl != NULL && curInd < range)
         {
-            //printf("search level %d, curInd %d sorted %d\n", i, curInd, ptr_lvl->sorted);
+            // printf("search level %d, level size %d sorted %d\n", i, ptr_lvl->curr_size, ptr_lvl->sorted);
             int numofRuns = 0;
             numofRuns = ptr_lvl->curr_runs;
 
@@ -538,7 +538,7 @@ int getRangeWithCompaction(lsmtree *lsmt, keyType startKey, keyType endKey, valT
                 end1 = clock();
                 seconds1 = (float)(end1 - start1) / CLOCKS_PER_SEC;
                 time[1] = time[1] + seconds1;
-                
+
                 printf("do not check the level\n");
                 ptr_lvl = (*lsmt).levels[++i];
 
@@ -599,7 +599,7 @@ int getRangeWithCompaction(lsmtree *lsmt, keyType startKey, keyType endKey, valT
             seconds1 = (float)(end1 - start1) / CLOCKS_PER_SEC;
             time[0] = time[0] + seconds1;
 
-            if (tobeMerged <= 1 || i == 0 || ptr_lvl->sorted == 1)
+            if (tobeMerged <= 1 || ptr_lvl->sorted == 1)
             {
                 //printf("No Compaction\n");
                 ptr_lvl = (*lsmt).levels[++i];
